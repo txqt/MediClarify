@@ -30,7 +30,7 @@ const SeverityBadge: React.FC<{ severity?: MedicalTestResult['severity']; status
   const key = (severity as keyof typeof styles) || 'unknown';
   
   return (
-    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${styles[key]}`}>
+    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${styles[key]} whitespace-nowrap`}>
       {labels[key]}
     </span>
   );
@@ -42,11 +42,11 @@ const ConfidenceIndicator: React.FC<{ score: number }> = ({ score }) => {
   else if (score > 50) color = 'bg-yellow-400';
 
   return (
-    <div className="flex items-center gap-1" title={`AI Confidence: ${score}%`}>
-      <div className="w-12 h-1 bg-slate-200 rounded-full overflow-hidden">
+    <div className="flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity" title={`AI Confidence: ${score}%`}>
+      <span className="text-[10px] text-slate-400 font-medium tracking-tight">AI Confidence</span>
+      <div className="w-10 h-1 bg-slate-200 rounded-full overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${score}%` }}></div>
       </div>
-      <span className="text-[10px] text-slate-400">{score}%</span>
     </div>
   );
 };
@@ -86,7 +86,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
         <div className="bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-6 animate-fade-in">
            <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wide mb-2 flex items-center">
              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-             {language === 'en' ? 'Data Quality Warnings' : 'Cảnh báo dữ liệu'}
+             {language === 'en' ? 'Data Quality Issues' : 'Cảnh báo dữ liệu'}
            </h3>
            <ul className="list-disc list-inside text-sm text-amber-800 space-y-1">
              {data.errorsDetected.map((err, i) => <li key={i}>{err}</li>)}
@@ -109,7 +109,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
           </div>
           <ul className="list-disc list-inside space-y-2 text-red-700">
             {data.abnormalFindings.map((finding, idx) => (
-              <li key={idx} className="stagger-item" style={{ animationDelay: `${0.2 + (idx * 0.1)}s` }}>{finding}</li>
+              <li key={idx} className="stagger-item font-medium" style={{ animationDelay: `${0.2 + (idx * 0.1)}s` }}>{finding}</li>
             ))}
           </ul>
         </div>
@@ -121,40 +121,59 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
           <h2 className="text-xl font-bold text-slate-800">
             {language === 'en' ? 'Detailed Results' : 'Kết quả chi tiết'}
           </h2>
-          <span className="text-xs text-slate-400">Confidence Score</span>
         </div>
         <div className="divide-y divide-slate-100">
           {data.results.map((item, index) => (
             <div 
               key={index} 
-              className="p-6 hover:bg-slate-50 transition-colors stagger-item group"
+              className="p-5 hover:bg-slate-50 transition-colors stagger-item group"
               style={{ animationDelay: `${0.3 + (index * 0.1)}s` }}
             >
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h4 className="font-semibold text-slate-900 text-lg">{item.test}</h4>
+              <div className="flex flex-col sm:flex-row gap-4 justify-between">
+                
+                {/* Left: Test Info & Explanation */}
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-slate-900 text-lg">{item.test}</h4>
                     <SeverityBadge severity={item.severity} status={item.status} />
-                    <ConfidenceIndicator score={item.confidence} />
                   </div>
-                  <p className="text-slate-600 text-sm mb-2">{item.explanation}</p>
-                  {item.notes && (
-                    <p className="text-xs text-amber-600 font-medium flex items-center bg-amber-50 inline-block px-2 py-1 rounded">
-                      ⚠️ {item.notes}
-                    </p>
-                  )}
+                  
+                  <p className="text-slate-600 text-sm leading-relaxed max-w-2xl">
+                    {item.explanation}
+                  </p>
+                  
+                  <div className="flex items-center gap-4 mt-2">
+                     <ConfidenceIndicator score={item.confidence} />
+                     {item.notes && (
+                      <span className="text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                        ⚠️ {item.notes}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 min-w-[140px] md:text-right">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
-                    {language === 'en' ? 'Value' : 'Giá trị'}
-                  </p>
-                  <p className={`font-bold text-lg break-words ${item.status !== 'normal' ? 'text-blue-900' : 'text-slate-800'}`}>
-                    {item.value}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {language === 'en' ? 'Range: ' : 'Phạm vi: '} {item.normalRange}
-                  </p>
+
+                {/* Right: Value & Range */}
+                <div className="sm:text-right min-w-[140px] bg-slate-50/50 p-3 rounded-lg border border-slate-100/50 sm:bg-transparent sm:border-0 sm:p-0">
+                  <div className="flex flex-row sm:flex-col justify-between items-center sm:items-end gap-2 sm:gap-0">
+                    <div>
+                      <span className="text-xs text-slate-400 uppercase tracking-wider block sm:mb-1">
+                        {language === 'en' ? 'Value' : 'Giá trị'}
+                      </span>
+                      <span className={`font-bold text-lg ${item.status !== 'normal' ? 'text-blue-700' : 'text-slate-800'}`}>
+                        {item.value}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                       <span className="text-xs text-slate-400 uppercase tracking-wider block sm:mb-1 mt-0 sm:mt-3">
+                        {language === 'en' ? 'Range' : 'Phạm vi'}
+                      </span>
+                      <span className="text-sm text-slate-600 font-medium">
+                        {item.normalRange}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+
               </div>
             </div>
           ))}
@@ -187,7 +206,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
               style={{ animationDelay: `${0.6 + (idx * 0.1)}s` }}
             >
               <span className="font-bold mr-3 text-blue-300 group-hover:text-blue-500 transition-colors">{idx + 1}.</span>
-              <span className="flex-1">{q}</span>
+              <span className="flex-1 font-medium">{q}</span>
               <svg className="w-4 h-4 text-blue-200 group-hover:text-blue-500 mt-1 opacity-0 group-hover:opacity-100 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>

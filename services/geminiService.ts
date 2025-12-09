@@ -45,8 +45,8 @@ const analysisSchema: Schema = {
             type: Type.NUMBER,
             description: "Confidence score (0-100) regarding the extraction and interpretation of this specific result.",
           },
-          explanation: { type: Type.STRING, description: "Simple explanation for a 12-year-old." },
-          notes: { type: Type.STRING, description: "Any warnings about unit mismatches or suspect reference ranges." },
+          explanation: { type: Type.STRING, description: "Simple explanation. Max 1 sentence for Normal. Max 2 sentences for Abnormal." },
+          notes: { type: Type.STRING, description: "Specific data warnings (e.g., 'Unit mismatch'). Empty if none." },
         },
         required: ["test", "value", "normalRange", "status", "explanation", "confidence"],
       },
@@ -64,7 +64,7 @@ const analysisSchema: Schema = {
     errorsDetected: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "List of range mistakes, unit mismatches, or unreadable fields detected.",
+      description: "List of general range mistakes, unit mismatches, or unreadable fields detected in the document.",
     }
   },
   required: ["summary", "results", "abnormalFindings", "suggestedQuestions"],
@@ -87,11 +87,19 @@ export const analyzeDocument = async (
       STRICT RULES:
       1. Do NOT give medical diagnosis. Only interpret the data present.
       2. Only compare results using the reference ranges PROVIDED in the document.
-      3. If reference range looks wrong, reversed, or impossible, set status to 'unknown' and add a note: "⚠️ Reference range appears incorrect."
-      4. If the units between result and reference range do not match, set status to 'unknown' and add a note: "⚠️ Unit mismatch detected."
+      3. If reference range looks wrong, reversed, or impossible, set status to 'unknown' and add a note: " Reference range appears incorrect."
+      4. If the units between result and reference range do not match, set status to 'unknown' and add a note: " Unit mismatch detected."
       5. Add a confidence score (0-100) for each interpretation based on image clarity and data consistency.
       6. Categorize each abnormal result severity into: Mild, Moderate, or Concerning. Use 'none' for normal results.
       7. Keep the explanation simple enough for a 12-year-old to understand. Avoid complex jargon.
+
+      IMPORTANT FORMATTING INSTRUCTIONS:
+      - Response must be short, structured, and easy to scan visually.
+      - **Summary**: Concise, 2-4 sentences max.
+      - **Explanations**:
+        - For NORMAL results: Max 1 sentence.
+        - For ABNORMAL results: Max 2 sentences.
+      - **Data Quality**: Group all general warnings (range mistakes, unit mismatches, unreadable text) into the 'errorsDetected' list. Only use the 'notes' field on specific results if critical.
 
       Analyze the attached medical document image/PDF and return the JSON response.
     `;
