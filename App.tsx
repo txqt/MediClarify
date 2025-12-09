@@ -1,293 +1,161 @@
-import React, { useState, useEffect } from 'react';
-import { AnalysisData, FileData, Language } from './types';
-import FileUpload from './components/FileUpload';
-import AnalysisResults from './components/AnalysisResults';
-import QAChat from './components/QAChat';
-import { analyzeDocument, initializeChat } from './services/geminiService';
+import React from 'react';
+import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { MedicalProvider, useMedical } from './context/MedicalContext';
+import AnalyzerView from './components/AnalyzerView';
 
-// --- Sub-components (Defined here for file simplicity, typically separate files) ---
-
-const HeroSection: React.FC = () => (
-  <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-16 px-4 rounded-3xl mb-12 animate-fade-in border border-blue-50">
-    <div className="max-w-4xl mx-auto text-center">
-      <div className="inline-flex items-center gap-2 bg-blue-100 px-4 py-2 rounded-full text-blue-700 text-sm font-medium mb-6 hover:bg-blue-200 transition-colors cursor-default">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-        </svg>
-        Powered by Gemini 3 Pro
-      </div>
-      
-      <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">
-        Understand Your Medical Results
-        <span className="block text-blue-600 mt-2">In Plain Language</span>
-      </h1>
-      
-      <p className="text-xl text-slate-600 mb-10 leading-relaxed max-w-2xl mx-auto">
-        Upload your lab results or medical reports. We use advanced AI to translate complex medical terms into simple explanations you can actually understand.
-      </p>
-      
-      {/* Trust indicators */}
-      <div className="flex flex-wrap justify-center gap-6 md:gap-12 text-sm text-slate-500 font-medium">
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-          Private & Secure
-        </div>
-        <div className="flex items-center gap-2">
-           <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          Free to Use
-        </div>
-        <div className="flex items-center gap-2">
-          <svg className="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
-          Multilingual Support
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const LoadingSkeleton: React.FC = () => (
-  <div className="w-full max-w-5xl mx-auto space-y-8 animate-pulse mt-8">
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2 space-y-6">
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-           <div className="h-6 bg-slate-200 rounded w-1/4 mb-4"></div>
-           <div className="space-y-3">
-             <div className="h-4 bg-slate-200 rounded w-full"></div>
-             <div className="h-4 bg-slate-200 rounded w-11/12"></div>
-             <div className="h-4 bg-slate-200 rounded w-4/5"></div>
-           </div>
-        </div>
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-           <div className="h-6 bg-slate-200 rounded w-1/3 mb-6"></div>
-           {[1, 2, 3].map((i) => (
-             <div key={i} className="flex justify-between items-center mb-6 last:mb-0">
-                <div className="space-y-2 w-2/3">
-                  <div className="h-5 bg-slate-200 rounded w-1/2"></div>
-                  <div className="h-4 bg-slate-200 rounded w-3/4"></div>
-                </div>
-                <div className="h-10 bg-slate-200 rounded w-20"></div>
-             </div>
-           ))}
-        </div>
-      </div>
-      <div className="lg:col-span-1 space-y-6">
-        <div className="bg-white rounded-xl p-6 border border-slate-200 h-64"></div>
-        <div className="bg-white rounded-xl p-6 border border-slate-200 h-96"></div>
-      </div>
-    </div>
-  </div>
-);
-
-const DisclaimerBanner: React.FC<{ language: Language }> = ({ language }) => (
-  <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-8 rounded-r-lg shadow-sm animate-fade-in">
-    <div className="flex items-start">
-      <svg className="w-5 h-5 text-amber-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-      </svg>
-      <div>
-        <p className="font-bold text-amber-800 text-sm">
-          {language === 'en' ? 'Important Medical Disclaimer' : 'Lưu ý Y tế Quan trọng'}
+// --- About Page Component ---
+const AboutPage: React.FC = () => (
+  <div className="animate-fade-in space-y-8 max-w-3xl mx-auto">
+    <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200">
+      <h2 className="text-3xl font-bold text-slate-900 mb-6">About MediClarify</h2>
+      <div className="prose prose-slate lg:prose-lg">
+        <p>
+          MediClarify is designed to bridge the gap between complex medical reports and patient understanding. 
+          By leveraging Google's advanced Gemini 3 Pro AI model, we can analyze lab results, prescriptions, and medical notes instantly.
         </p>
-        <p className="text-amber-700 text-sm mt-1 leading-relaxed">
-          {language === 'en' 
-            ? 'This analysis is generated by AI and may contain errors. It is for informational purposes only and is NOT a substitute for professional medical advice, diagnosis, or treatment. Always consult with your doctor.'
-            : 'Phân tích này được tạo bởi AI và có thể chứa sai sót. Thông tin chỉ mang tính chất tham khảo và KHÔNG thay thế cho lời khuyên y tế chuyên nghiệp. Hãy luôn tham khảo ý kiến bác sĩ của bạn.'
-          }
+        <h3 className="text-xl font-bold mt-6 mb-3">How it works</h3>
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>Secure Analysis:</strong> Your documents are processed in memory and are not permanently stored on our servers.</li>
+          <li><strong>Multimodal AI:</strong> We use OCR and vision capabilities to read both PDFs and images of physical documents.</li>
+          <li><strong>Plain Language:</strong> The AI is specifically prompted to avoid medical jargon and explain results in terms a 5th grader could understand.</li>
+        </ul>
+        <h3 className="text-xl font-bold mt-6 mb-3">Disclaimer</h3>
+        <p className="text-slate-600 italic">
+          This tool is for educational purposes only. It does not replace professional medical advice. Always consult your doctor regarding your results.
         </p>
       </div>
     </div>
   </div>
 );
 
-// --- Main App Component ---
-
-function App() {
-  const [language, setLanguage] = useState<Language>('en');
-  const [fileData, setFileData] = useState<FileData | null>(null);
-  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleFileUpload = async (data: FileData) => {
-    setFileData(data);
-    setAnalysisData(null); // Clear previous results
-    performAnalysis(data, language);
-  };
-
-  const performAnalysis = async (data: FileData, lang: Language) => {
-    setIsAnalyzing(true);
-    setError(null);
-    try {
-      // 1. Get structured JSON Analysis
-      const result = await analyzeDocument(data.base64, data.mimeType, lang);
-      setAnalysisData(result);
-
-      // 2. Initialize Chat Session for Q&A context
-      initializeChat(data.base64, data.mimeType, lang);
-    } catch (err) {
-      console.error(err);
-      setError(
-        lang === 'en' 
-          ? "Failed to analyze document. Please ensure it is a clear medical image or PDF." 
-          : "Không thể phân tích tài liệu. Vui lòng đảm bảo hình ảnh hoặc PDF rõ ràng."
-      );
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+// --- Navbar Component ---
+const Navbar: React.FC = () => {
+  const { language, setLanguage, isAnalyzing, resetApp } = useMedical();
+  const location = useLocation();
 
   const toggleLanguage = () => {
-    const newLang = language === 'en' ? 'vi' : 'en';
-    setLanguage(newLang);
-    
-    // If we have a file, re-analyze in the new language
-    if (fileData && !isAnalyzing) {
-      performAnalysis(fileData, newLang);
-    }
-  };
-
-  const resetApp = () => {
-    setFileData(null);
-    setAnalysisData(null);
-    setError(null);
+    setLanguage(language === 'en' ? 'vi' : 'en');
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 font-sans selection:bg-blue-100 selection:text-blue-900">
-      
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shadow-sm transition-all duration-300">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer group" onClick={resetApp}>
+    <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shadow-sm transition-all duration-300">
+      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-8">
+          <Link to="/" className="flex items-center gap-2 cursor-pointer group">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md group-hover:bg-blue-700 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
             </div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">MediClarify</h1>
-          </div>
+          </Link>
+          
+          <nav className="hidden md:flex gap-6">
+            <Link 
+              to="/" 
+              className={`text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+            >
+              Analyzer
+            </Link>
+            <Link 
+              to="/about" 
+              className={`text-sm font-medium transition-colors ${location.pathname === '/about' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+            >
+              About
+            </Link>
+          </nav>
+        </div>
 
-          <button
+        <div className="flex items-center gap-4">
+           {/* Mobile Nav Link (simplified) */}
+           <Link to="/about" className="md:hidden text-sm text-slate-600 font-medium">About</Link>
+
+           <button
             onClick={toggleLanguage}
-            disabled={isAnalyzing}
-            className="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all text-sm font-medium active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all text-sm font-medium active:scale-95"
           >
             <span className={language === 'en' ? 'text-blue-600 font-bold' : 'text-slate-400'}>EN</span>
             <span className="text-slate-300">|</span>
             <span className={language === 'vi' ? 'text-blue-600 font-bold' : 'text-slate-400'}>VI</span>
           </button>
         </div>
-      </header>
+      </div>
+    </header>
+  );
+};
 
+// --- Floating Status Component ---
+// Shows when analysis is running in background but user is on another page
+const FloatingStatus: React.FC = () => {
+  const { isAnalyzing, error } = useMedical();
+  const location = useLocation();
+
+  // If we are on the home page, the main UI shows the status, so hide this
+  if (location.pathname === '/') return null;
+
+  if (isAnalyzing) {
+    return (
+      <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+        <div className="bg-white rounded-lg shadow-lg border border-blue-100 p-4 flex items-center gap-4 max-w-sm">
+          <div className="relative">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            <div className="absolute top-0 left-0 w-3 h-3 bg-blue-500 rounded-full animate-ping"></div>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-800 text-sm">Analyzing Document...</p>
+            <p className="text-xs text-slate-500">You can keep browsing</p>
+          </div>
+          <Link to="/" className="text-xs font-bold text-blue-600 hover:text-blue-800">
+            View
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+     return (
+      <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+        <div className="bg-white rounded-lg shadow-lg border border-red-100 p-4 flex items-center gap-4 max-w-sm">
+          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+          <div>
+            <p className="font-semibold text-red-800 text-sm">Analysis Failed</p>
+            <p className="text-xs text-slate-500">Check analyzer for details</p>
+          </div>
+          <Link to="/" className="text-xs font-bold text-red-600 hover:text-red-800">
+            View
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+// --- Main App Layout ---
+const AppContent: React.FC = () => {
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-12 font-sans selection:bg-blue-100 selection:text-blue-900">
+      <Navbar />
       <main className="max-w-5xl mx-auto px-4 py-8">
-        
-        {/* Intro Section (only show if no file uploaded) */}
-        {!fileData && <HeroSection />}
-
-        {/* Upload Area (Always visible if no file, or hidden if file exists to save space? 
-            Let's keep it conditionally rendered for better flow) */}
-        {!analysisData && !isAnalyzing && (
-          <div className={`transition-all duration-500 ease-in-out transform ${fileData ? 'opacity-0 scale-95 pointer-events-none absolute' : 'opacity-100 scale-100'}`}>
-             <FileUpload onFileUpload={handleFileUpload} disabled={!!fileData} />
-          </div>
-        )}
-
-        {/* Loading State */}
-        {isAnalyzing && (
-          <div className="animate-fade-in">
-             <div className="text-center mb-8">
-               <h3 className="text-xl font-semibold text-slate-800 mb-2">
-                {language === 'en' ? 'Analyzing Document...' : 'Đang phân tích tài liệu...'}
-              </h3>
-              <p className="text-slate-500">
-                {language === 'en' 
-                  ? 'AI is reading your document and translating medical terms.' 
-                  : 'AI đang đọc tài liệu và dịch các thuật ngữ y tế.'}
-              </p>
-             </div>
-             <LoadingSkeleton />
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="mt-8 p-6 bg-red-50 border border-red-200 rounded-xl text-center shadow-sm animate-fade-in">
-            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-            </div>
-            <p className="text-red-800 font-semibold mb-1 text-lg">{language === 'en' ? 'Analysis Failed' : 'Phân tích thất bại'}</p>
-            <p className="text-red-600 mb-6">{error}</p>
-            <button 
-              onClick={() => setFileData(null)}
-              className="px-6 py-2 bg-white border border-red-200 text-red-700 rounded-lg hover:bg-red-50 font-medium shadow-sm transition-all hover:shadow"
-            >
-              {language === 'en' ? 'Try Another File' : 'Thử tệp khác'}
-            </button>
-          </div>
-        )}
-
-        {/* Results Dashboard */}
-        {analysisData && fileData && (
-          <div className="animate-fade-in">
-            
-            <DisclaimerBanner language={language} />
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              
-              {/* Left Column: Analysis (2/3 width) */}
-              <div className="lg:col-span-2 space-y-8">
-                <AnalysisResults data={analysisData} language={language} />
-              </div>
-
-              {/* Right Column: Original File Preview & Chat (1/3 width) */}
-              <div className="lg:col-span-1 space-y-6">
-                
-                {/* File Preview */}
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-center mb-3">
-                     <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wide">
-                      {language === 'en' ? 'Uploaded Document' : 'Tài liệu đã tải lên'}
-                    </h3>
-                  </div>
-                 
-                  {fileData.mimeType === 'application/pdf' ? (
-                     <div className="w-full h-48 bg-slate-50 rounded-lg flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200">
-                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 mb-2 text-slate-300">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                        </svg>
-                        <span className="text-xs font-medium">PDF Document</span>
-                     </div>
-                  ) : (
-                    <div className="relative group cursor-pointer overflow-hidden rounded-lg">
-                      <img 
-                        src={fileData.previewUrl} 
-                        alt="Uploaded medical document" 
-                        className="w-full h-auto max-h-64 object-contain rounded-lg border border-slate-200 bg-slate-50 transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors"></div>
-                    </div>
-                  )}
-                  <button 
-                    onClick={resetApp}
-                    className="w-full mt-4 py-2.5 text-sm text-slate-600 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors border border-slate-200 font-medium"
-                  >
-                    {language === 'en' ? 'Analyze New Document' : 'Phân tích tài liệu mới'}
-                  </button>
-                </div>
-
-                {/* Chat Interface */}
-                <div className="sticky top-24">
-                  <QAChat initialLanguage={language} documentSummary={analysisData.summary} />
-                </div>
-
-              </div>
-            </div>
-          </div>
-        )}
+        <Routes>
+          <Route path="/" element={<AnalyzerView />} />
+          <Route path="/about" element={<AboutPage />} />
+        </Routes>
       </main>
+      <FloatingStatus />
     </div>
+  );
+};
+
+function App() {
+  return (
+    <Router>
+      <MedicalProvider>
+        <AppContent />
+      </MedicalProvider>
+    </Router>
   );
 }
 

@@ -9,7 +9,7 @@ interface FileUploadProps {
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Local processing state (reading file)
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +27,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
       return;
     }
 
-    setIsUploading(true);
+    setIsProcessing(true);
     setUploadProgress(0);
 
     // Simulate upload progress for better UX
@@ -56,13 +56,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
           previewUrl,
           mimeType: file.type
         });
-        setIsUploading(false);
+        setIsProcessing(false);
         setUploadProgress(0);
       }, 500);
       
     } catch (err) {
       clearInterval(interval);
-      setIsUploading(false);
+      setIsProcessing(false);
       console.error(err);
       setError("Failed to process file. Please try again.");
     }
@@ -81,7 +81,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (disabled || isUploading) return;
+    if (disabled || isProcessing) return;
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       processFile(e.dataTransfer.files[0]);
@@ -100,14 +100,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => !disabled && !isUploading && fileInputRef.current?.click()}
+        onClick={() => !disabled && !isProcessing && fileInputRef.current?.click()}
         className={`
           relative border-2 border-dashed rounded-xl p-8 sm:p-12 text-center cursor-pointer transition-all duration-300
           ${isDragging 
             ? 'border-blue-500 bg-blue-50 scale-[1.02]' 
             : 'border-slate-300 hover:border-blue-400 hover:bg-slate-50'
           }
-          ${(disabled || isUploading) ? 'opacity-75 cursor-not-allowed' : ''}
+          ${(disabled || isProcessing) ? 'opacity-75 cursor-not-allowed' : ''}
         `}
       >
         <input
@@ -116,11 +116,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
           onChange={handleFileInput}
           className="hidden"
           accept=".jpg,.jpeg,.png,.pdf"
-          disabled={disabled || isUploading}
+          disabled={disabled || isProcessing}
         />
         
         <div className="space-y-4">
-          {!isUploading ? (
+          {!isProcessing ? (
             <>
               <div className="mx-auto w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
@@ -143,7 +143,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                 </svg>
               </div>
-              <p className="text-slate-700 font-medium mb-2">Processing Document...</p>
+              <p className="text-slate-700 font-medium mb-2">Preparing File...</p>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden w-full">
                 <div 
                   className="h-full bg-blue-600 transition-all duration-300 ease-out"
