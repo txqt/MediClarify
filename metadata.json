@@ -1,0 +1,5 @@
+{
+  "name": "MediClarify",
+  "description": "A medical document translator that simplifies complex lab results and reports into plain, easy-to-understand language.",
+  "requestFramePermissions": []
+}
