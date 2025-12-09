@@ -23,32 +23,48 @@ const analysisSchema: Schema = {
       type: Type.STRING,
       description: "High-level summary (2-4 sentences) explaining the overall health picture in simple language.",
     },
+    overallRiskLevel: {
+      type: Type.STRING,
+      enum: ["low", "moderate", "high", "critical"],
+      description: "Overall health risk assessment based on the aggregate of abnormal findings.",
+    },
+    overallRiskScore: {
+      type: Type.NUMBER,
+      description: "A calculated risk score from 0 (Perfect health) to 100 (Critical condition).",
+    },
     results: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
           test: { type: Type.STRING, description: "The name of the test or measurement." },
-          value: { type: Type.STRING, description: "The value found." },
-          normalRange: { type: Type.STRING, description: "The reference range provided." },
+          value: { type: Type.STRING, description: "The raw value string found in document." },
+          normalRange: { type: Type.STRING, description: "The reference range string provided." },
           status: { 
             type: Type.STRING, 
-            enum: ["normal", "high", "low", "abnormal", "borderline", "unknown"],
+            enum: ["normal", "high", "low", "abnormal", "borderline", "unknown", "critical"],
             description: "The status based strictly on the reference range." 
           },
           severity: {
             type: Type.STRING,
-            enum: ["none", "mild", "moderate", "concerning"],
+            enum: ["none", "mild", "moderate", "concerning", "critical"],
             description: "Severity of the abnormality. 'none' if normal.",
           },
           confidence: {
             type: Type.NUMBER,
-            description: "Confidence score (0-100) regarding the extraction and interpretation of this specific result.",
+            description: "Confidence score (0-100) regarding the extraction accuracy.",
           },
-          explanation: { type: Type.STRING, description: "Simple explanation. Max 1 sentence for Normal. Max 2 sentences for Abnormal." },
-          notes: { type: Type.STRING, description: "Specific data warnings (e.g., 'Unit mismatch'). Empty if none." },
+          explanation: { type: Type.STRING, description: "Simple explanation (EL5) for the patient." },
+          technicalExplanation: { type: Type.STRING, description: "Detailed medical explanation for a doctor." },
+          notes: { type: Type.STRING, description: "Specific data warnings (e.g., 'Unit mismatch', 'Impossible value >10x')." },
+          
+          // Numeric fields for visualization
+          numericValue: { type: Type.NUMBER, description: "Parsed numeric value of the result. Null if non-numeric." },
+          rangeLow: { type: Type.NUMBER, description: "Lower bound of the reference range. 0 if not specified." },
+          rangeHigh: { type: Type.NUMBER, description: "Upper bound of the reference range." },
+          unit: { type: Type.STRING, description: "Unit of measurement (e.g., mg/dL)." },
         },
-        required: ["test", "value", "normalRange", "status", "explanation", "confidence"],
+        required: ["test", "value", "status", "explanation", "confidence"],
       },
     },
     abnormalFindings: {
@@ -64,10 +80,10 @@ const analysisSchema: Schema = {
     errorsDetected: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "List of general range mistakes, unit mismatches, or unreadable fields detected in the document.",
+      description: "List of general range mistakes, unit mismatches, or unreadable fields.",
     }
   },
-  required: ["summary", "results", "abnormalFindings", "suggestedQuestions"],
+  required: ["summary", "results", "abnormalFindings", "suggestedQuestions", "overallRiskLevel", "overallRiskScore"],
 };
 
 export const analyzeDocument = async (
@@ -80,28 +96,31 @@ export const analyzeDocument = async (
     const ai = getAiClient(apiKey);
     const langName = language === 'vi' ? 'Vietnamese' : 'English';
     const prompt = `
-      You are a specialized medical document interpreter. Your goal is to provide plain-language, patient-friendly summaries.
-      
+      You are an advanced medical diagnostic assistant API. 
       Output Language: ${langName}
 
-      STRICT RULES:
-      1. Do NOT give medical diagnosis. Only interpret the data present.
-      2. Only compare results using the reference ranges PROVIDED in the document.
-      3. If reference range looks wrong, reversed, or impossible, set status to 'unknown' and add a note: " Reference range appears incorrect."
-      4. If the units between result and reference range do not match, set status to 'unknown' and add a note: " Unit mismatch detected."
-      5. Add a confidence score (0-100) for each interpretation based on image clarity and data consistency.
-      6. Categorize each abnormal result severity into: Mild, Moderate, or Concerning. Use 'none' for normal results.
-      7. Keep the explanation simple enough for a 12-year-old to understand. Avoid complex jargon.
+      TASK: Analyze the provided medical document (Lab Results, Report, etc.) and return a structured JSON response.
 
-      IMPORTANT FORMATTING INSTRUCTIONS:
-      - Response must be short, structured, and easy to scan visually.
-      - **Summary**: Concise, 2-4 sentences max.
-      - **Explanations**:
-        - For NORMAL results: Max 1 sentence.
-        - For ABNORMAL results: Max 2 sentences.
-      - **Data Quality**: Group all general warnings (range mistakes, unit mismatches, unreadable text) into the 'errorsDetected' list. Only use the 'notes' field on specific results if critical.
+      SAFETY & ACCURACY RULES:
+      1. **10x Outlier Check**: If a value is >10x the upper limit of the normal range, flag it as 'critical' status and add a note: "Possible OCR/Data error: Value is >10x normal limit."
+      2. **Unit Consistency**: Check if units match (e.g., result in mg/dL vs range in mmol/L). If mismatched, set status 'unknown' and note it.
+      3. **Impossible Values**: If a value is biologically impossible (e.g., pH 14 in blood), flag as error.
+      4. **No Diagnosis**: Do not provide a diagnosis. Only interpret the data relative to the provided ranges.
 
-      Analyze the attached medical document image/PDF and return the JSON response.
+      DUAL MODE EXPLANATION:
+      - For each result, provide TWO explanations:
+        1. 'explanation': Simple, non-medical language (for a 12-year-old).
+        2. 'technicalExplanation': Clinical terminology and physiological context (for a doctor).
+
+      VISUALIZATION DATA:
+      - Extract 'numericValue', 'rangeLow', and 'rangeHigh' whenever possible to allow drawing charts.
+      - If range is "< 5.0", rangeLow = 0, rangeHigh = 5.0.
+      
+      RISK ASSESSMENT:
+      - Calculate an 'overallRiskScore' (0-100) based on the number and severity of abnormal results.
+      - Assign 'overallRiskLevel': 'low' (all normal), 'moderate' (minor issues), 'high' (concerning values), 'critical' (urgent values).
+
+      Analyze the attached image/PDF and return the JSON.
     `;
 
     const response = await ai.models.generateContent({
@@ -120,7 +139,7 @@ export const analyzeDocument = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: analysisSchema,
-        temperature: 0.1, // Very low temperature for high precision
+        temperature: 0.0, // Zero temp for maximum data extraction accuracy
       },
     });
 
@@ -154,7 +173,7 @@ export const initializeChat = (base64Data: string, mimeType: string, language: L
             },
           },
           {
-            text: `This is my medical document. I may have follow-up questions. Please answer in ${langName}. Keep answers simple (EL12). Strictly NO diagnosis.`,
+            text: `This is my medical document. I may have follow-up questions. Please answer in ${langName}.`,
           },
         ],
       },
@@ -162,13 +181,13 @@ export const initializeChat = (base64Data: string, mimeType: string, language: L
         role: "model",
         parts: [
           {
-            text: `I have analyzed your document. I am ready to answer your questions in ${langName}. I am an AI, not a doctor, and I cannot provide a diagnosis.`,
+            text: `I have analyzed your document. I am ready to answer your questions in ${langName}. I am an AI, not a doctor.`,
           },
         ],
       },
     ],
     config: {
-        systemInstruction: "You are a helpful, empathetic medical interpreter. You explain medical concepts simply (for a 12 year old). You strictly refuse to provide diagnoses or treatment plans. You always advise consulting a doctor for medical decisions."
+        systemInstruction: "You are a helpful, empathetic medical interpreter. You support two modes: Simple (patient-friendly) and Technical (doctor-friendly). Adjust your tone based on the user's questions. Always prioritize safety and refuse diagnosis."
     }
   });
 };
