@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, Language } from '../types';
+import { ChatMessage, Language, AnalysisData } from '../types';
 import { sendChatMessage } from '../services/geminiService';
+import { useMedical } from '../context/MedicalContext';
 
 interface QAChatProps {
   initialLanguage: Language;
-  documentSummary: string;
+  analysisData: AnalysisData;
 }
 
-const QAChat: React.FC<QAChatProps> = ({ initialLanguage, documentSummary }) => {
+const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
+  const { prefilledMessage, setPrefilledMessage } = useMedical();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,6 +23,16 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, documentSummary }) => 
     scrollToBottom();
   }, [messages, isLoading]);
 
+  // Handle prefilled message coming from AnalysisResults click
+  useEffect(() => {
+    if (prefilledMessage) {
+      setInput(prefilledMessage);
+      setPrefilledMessage(''); // Reset context after populating input
+      // Optional: Auto send
+      // handleSend(prefilledMessage); 
+    }
+  }, [prefilledMessage, setPrefilledMessage]);
+
   // Initial greeting
   useEffect(() => {
     if (messages.length === 0) {
@@ -28,8 +40,8 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, documentSummary }) => 
         id: 'init',
         role: 'model',
         text: initialLanguage === 'en' 
-          ? "I've analyzed your document. What would you like to know?"
-          : "Tôi đã phân tích tài liệu của bạn. Bạn muốn biết thêm điều gì?",
+          ? "I've analyzed your document. I cannot provide a diagnosis, but I can explain the results. What would you like to know?"
+          : "Tôi đã phân tích tài liệu. Tôi không thể chẩn đoán, nhưng tôi có thể giải thích kết quả. Bạn muốn biết thêm điều gì?",
         timestamp: Date.now()
       }]);
     }
@@ -77,15 +89,18 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, documentSummary }) => 
     handleSend(input);
   };
 
-  const suggestedQuestions = initialLanguage === 'en' ? [
-    "What do my abnormal results mean?",
-    "Should I be concerned?",
-    "What are next steps?"
-  ] : [
-    "Kết quả bất thường có nghĩa gì?",
-    "Tôi có nên lo lắng không?",
-    "Bước tiếp theo là gì?"
-  ];
+  // Use Top 3 suggested questions from AnalysisData, fallback to static if empty
+  const suggestions = analysisData.suggestedQuestions.slice(0, 3).length > 0 
+    ? analysisData.suggestedQuestions.slice(0, 3) 
+    : (initialLanguage === 'en' ? [
+        "What do my abnormal results mean?",
+        "Should I be concerned?",
+        "What are next steps?"
+      ] : [
+        "Kết quả bất thường có nghĩa gì?",
+        "Tôi có nên lo lắng không?",
+        "Bước tiếp theo là gì?"
+      ]);
 
   return (
     <div className="flex flex-col h-[600px] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in" style={{ animationDelay: '0.3s' }}>
@@ -132,18 +147,18 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, documentSummary }) => 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Questions Area - Only show if conversation is new */}
+      {/* Suggested Questions Area */}
       {messages.length < 3 && !isLoading && (
         <div className="px-4 pb-2">
           <p className="text-xs text-slate-400 mb-2 font-medium uppercase tracking-wider">
             {initialLanguage === 'en' ? 'Suggested' : 'Gợi ý'}:
           </p>
           <div className="flex flex-wrap gap-2">
-            {suggestedQuestions.map((q, i) => (
+            {suggestions.map((q, i) => (
               <button
                 key={i}
                 onClick={() => handleSend(q)}
-                className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-full text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all active:scale-95"
+                className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-full text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all active:scale-95 text-left max-w-full truncate"
               >
                 {q}
               </button>

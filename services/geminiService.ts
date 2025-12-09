@@ -1,8 +1,19 @@
 import { GoogleGenAI, Type, Schema, Chat } from "@google/genai";
 import { AnalysisData, Language } from "../types";
 
-// Initialize the client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to get client (handling dynamic API key)
+const getAiClient = (customKey?: string) => {
+  const key = customKey || process.env.API_KEY;
+  if (!key) {
+    console.warn("No API Key available");
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
+
+// Allow setting a global key for the session if needed, though usually passed per request
+export const setCustomApiKey = (key: string) => {
+  // Logic handled in getAiClient
+};
 
 // Schema for the structured analysis output
 const analysisSchema: Schema = {
@@ -10,36 +21,51 @@ const analysisSchema: Schema = {
   properties: {
     summary: {
       type: Type.STRING,
-      description: "A brief, empathetic summary of the medical document in simple language.",
+      description: "High-level summary (2-4 sentences) explaining the overall health picture in simple language.",
     },
     results: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          test: { type: Type.STRING, description: "The name of the test or measurement in plain language." },
-          value: { type: Type.STRING, description: "The value found in the document." },
-          normalRange: { type: Type.STRING, description: "The reference range provided (or standard range if not)." },
+          test: { type: Type.STRING, description: "The name of the test or measurement." },
+          value: { type: Type.STRING, description: "The value found." },
+          normalRange: { type: Type.STRING, description: "The reference range provided." },
           status: { 
             type: Type.STRING, 
-            enum: ["normal", "high", "low", "abnormal", "borderline"],
-            description: "The clinical status of the result." 
+            enum: ["normal", "high", "low", "abnormal", "borderline", "unknown"],
+            description: "The status based strictly on the reference range." 
           },
-          explanation: { type: Type.STRING, description: "A simple explanation of what this test measures and why the result matters." },
+          severity: {
+            type: Type.STRING,
+            enum: ["none", "mild", "moderate", "concerning"],
+            description: "Severity of the abnormality. 'none' if normal.",
+          },
+          confidence: {
+            type: Type.NUMBER,
+            description: "Confidence score (0-100) regarding the extraction and interpretation of this specific result.",
+          },
+          explanation: { type: Type.STRING, description: "Simple explanation for a 12-year-old." },
+          notes: { type: Type.STRING, description: "Any warnings about unit mismatches or suspect reference ranges." },
         },
-        required: ["test", "value", "normalRange", "status", "explanation"],
+        required: ["test", "value", "normalRange", "status", "explanation", "confidence"],
       },
     },
     abnormalFindings: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "A list of bullet points highlighting only the abnormal or concerning findings.",
+      description: "List of abnormal values that need attention.",
     },
     suggestedQuestions: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "3 questions the patient should ask their doctor based on these specific results.",
+      description: "3-5 questions the patient should ask their doctor.",
     },
+    errorsDetected: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "List of range mistakes, unit mismatches, or unreadable fields detected.",
+    }
   },
   required: ["summary", "results", "abnormalFindings", "suggestedQuestions"],
 };
@@ -47,27 +73,31 @@ const analysisSchema: Schema = {
 export const analyzeDocument = async (
   base64Data: string,
   mimeType: string,
-  language: Language
+  language: Language,
+  apiKey?: string
 ): Promise<AnalysisData> => {
   try {
+    const ai = getAiClient(apiKey);
     const langName = language === 'vi' ? 'Vietnamese' : 'English';
     const prompt = `
-      You are an expert medical interpreter helping a patient understand their results.
-      Analyze this medical document image/PDF.
+      You are a specialized medical document interpreter. Your goal is to provide plain-language, patient-friendly summaries.
       
       Output Language: ${langName}
-      
-      Tasks:
-      1. Extract all test results.
-      2. Translate medical jargon into plain ${langName}.
-      3. Identify abnormal values.
-      4. Provide a comforting and clear summary.
-      
-      Important: Ensure medical accuracy but prioritize simplicity for a layperson.
+
+      STRICT RULES:
+      1. Do NOT give medical diagnosis. Only interpret the data present.
+      2. Only compare results using the reference ranges PROVIDED in the document.
+      3. If reference range looks wrong, reversed, or impossible, set status to 'unknown' and add a note: "⚠️ Reference range appears incorrect."
+      4. If the units between result and reference range do not match, set status to 'unknown' and add a note: "⚠️ Unit mismatch detected."
+      5. Add a confidence score (0-100) for each interpretation based on image clarity and data consistency.
+      6. Categorize each abnormal result severity into: Mild, Moderate, or Concerning. Use 'none' for normal results.
+      7. Keep the explanation simple enough for a 12-year-old to understand. Avoid complex jargon.
+
+      Analyze the attached medical document image/PDF and return the JSON response.
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview", // Using Pro for better reasoning capabilities
+      model: "gemini-3-pro-preview",
       contents: {
         parts: [
           {
@@ -82,7 +112,7 @@ export const analyzeDocument = async (
       config: {
         responseMimeType: "application/json",
         responseSchema: analysisSchema,
-        temperature: 0.2, // Lower temperature for more factual responses
+        temperature: 0.1, // Very low temperature for high precision
       },
     });
 
@@ -99,7 +129,8 @@ export const analyzeDocument = async (
 
 let chatSession: Chat | null = null;
 
-export const initializeChat = (base64Data: string, mimeType: string, language: Language) => {
+export const initializeChat = (base64Data: string, mimeType: string, language: Language, apiKey?: string) => {
+  const ai = getAiClient(apiKey);
   const langName = language === 'vi' ? 'Vietnamese' : 'English';
   
   chatSession = ai.chats.create({
@@ -115,7 +146,7 @@ export const initializeChat = (base64Data: string, mimeType: string, language: L
             },
           },
           {
-            text: `This is my medical document. I may have follow-up questions. Please answer in ${langName}. Keep answers simple, short, and easy to understand.`,
+            text: `This is my medical document. I may have follow-up questions. Please answer in ${langName}. Keep answers simple (EL12). Strictly NO diagnosis.`,
           },
         ],
       },
@@ -123,13 +154,13 @@ export const initializeChat = (base64Data: string, mimeType: string, language: L
         role: "model",
         parts: [
           {
-            text: `I have analyzed your document. I am ready to answer your questions in ${langName}. Remember, I am an AI, not a doctor.`,
+            text: `I have analyzed your document. I am ready to answer your questions in ${langName}. I am an AI, not a doctor, and I cannot provide a diagnosis.`,
           },
         ],
       },
     ],
     config: {
-        systemInstruction: "You are a helpful, empathetic medical assistant. You explain medical concepts simply. You strictly refuse to provide diagnoses or treatment plans. You always advise consulting a doctor for medical decisions."
+        systemInstruction: "You are a helpful, empathetic medical interpreter. You explain medical concepts simply (for a 12 year old). You strictly refuse to provide diagnoses or treatment plans. You always advise consulting a doctor for medical decisions."
     }
   });
 };
@@ -149,7 +180,6 @@ export const fileToBase64 = (file: File): Promise<string> => {
     reader.readAsDataURL(file);
     reader.onload = () => {
       const result = reader.result as string;
-      // Remove the Data-URL declaration (e.g., "data:image/jpeg;base64,")
       const base64 = result.split(',')[1];
       resolve(base64);
     };

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { AnalysisData, FileData, Language } from '../types';
-import { analyzeDocument, initializeChat } from '../services/geminiService';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { AnalysisData, FileData, Language, UserSettings } from '../types';
+import { analyzeDocument, initializeChat, setCustomApiKey } from '../services/geminiService';
 
 interface MedicalContextType {
   language: Language;
@@ -11,6 +11,10 @@ interface MedicalContextType {
   error: string | null;
   handleFileUpload: (data: FileData) => void;
   resetApp: () => void;
+  settings: UserSettings;
+  updateSettings: (settings: UserSettings) => void;
+  prefilledMessage: string;
+  setPrefilledMessage: (msg: string) => void;
 }
 
 const MedicalContext = createContext<MedicalContextType | undefined>(undefined);
@@ -21,17 +25,37 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prefilledMessage, setPrefilledMessage] = useState('');
+  
+  const [settings, setSettingsState] = useState<UserSettings>(() => {
+    const stored = localStorage.getItem('userSettings');
+    return stored ? JSON.parse(stored) : {};
+  });
+
+  const updateSettings = (newSettings: UserSettings) => {
+    setSettingsState(newSettings);
+    localStorage.setItem('userSettings', JSON.stringify(newSettings));
+    if (newSettings.apiKey) {
+      setCustomApiKey(newSettings.apiKey);
+    }
+  };
+
+  useEffect(() => {
+    if (settings.apiKey) {
+      setCustomApiKey(settings.apiKey);
+    }
+  }, []);
 
   const performAnalysis = async (data: FileData, lang: Language) => {
     setIsAnalyzing(true);
     setError(null);
     try {
       // 1. Get structured JSON Analysis
-      const result = await analyzeDocument(data.base64, data.mimeType, lang);
+      const result = await analyzeDocument(data.base64, data.mimeType, lang, settings.apiKey);
       setAnalysisData(result);
 
       // 2. Initialize Chat Session for Q&A context
-      initializeChat(data.base64, data.mimeType, lang);
+      initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
     } catch (err) {
       console.error(err);
       setError(
@@ -62,6 +86,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     setFileData(null);
     setAnalysisData(null);
     setError(null);
+    setPrefilledMessage('');
   };
 
   return (
@@ -73,7 +98,11 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
       isAnalyzing,
       error,
       handleFileUpload,
-      resetApp
+      resetApp,
+      settings,
+      updateSettings,
+      prefilledMessage,
+      setPrefilledMessage
     }}>
       {children}
     </MedicalContext.Provider>

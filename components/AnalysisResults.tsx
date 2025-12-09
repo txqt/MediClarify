@@ -1,33 +1,69 @@
 import React from 'react';
 import { AnalysisData, Language, MedicalTestResult } from '../types';
+import { useMedical } from '../context/MedicalContext';
 
 interface AnalysisResultsProps {
   data: AnalysisData;
   language: Language;
 }
 
-const StatusBadge: React.FC<{ status: MedicalTestResult['status'] }> = ({ status }) => {
-  const colors = {
-    normal: 'bg-green-100 text-green-700 border-green-200',
-    high: 'bg-red-100 text-red-700 border-red-200',
-    low: 'bg-blue-100 text-blue-700 border-blue-200',
-    abnormal: 'bg-red-100 text-red-700 border-red-200',
-    borderline: 'bg-yellow-100 text-yellow-800 border-yellow-200'
+const SeverityBadge: React.FC<{ severity?: MedicalTestResult['severity']; status: string }> = ({ severity, status }) => {
+  // Fallback if severity is missing but status is normal
+  if (status === 'normal' && !severity) severity = 'none';
+
+  const styles = {
+    none: 'bg-green-100 text-green-700 border-green-200',
+    mild: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    moderate: 'bg-orange-100 text-orange-800 border-orange-200',
+    concerning: 'bg-red-100 text-red-700 border-red-200',
+    unknown: 'bg-gray-100 text-gray-600 border-gray-200'
   };
 
-  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  const labels = {
+    none: 'Normal',
+    mild: 'Mild',
+    moderate: 'Moderate',
+    concerning: 'Concerning',
+    unknown: 'Unknown'
+  };
 
+  const key = (severity as keyof typeof styles) || 'unknown';
+  
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors[status] || colors.normal}`}>
-      {label}
+    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${styles[key]}`}>
+      {labels[key]}
     </span>
   );
 };
 
+const ConfidenceIndicator: React.FC<{ score: number }> = ({ score }) => {
+  let color = 'bg-red-400';
+  if (score > 80) color = 'bg-green-400';
+  else if (score > 50) color = 'bg-yellow-400';
+
+  return (
+    <div className="flex items-center gap-1" title={`AI Confidence: ${score}%`}>
+      <div className="w-12 h-1 bg-slate-200 rounded-full overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${score}%` }}></div>
+      </div>
+      <span className="text-[10px] text-slate-400">{score}%</span>
+    </div>
+  );
+};
+
 const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => {
+  const { setPrefilledMessage } = useMedical();
+
   return (
     <div className="space-y-6 w-full">
       
+      {/* Disclaimer Banner (Small internal one) */}
+      <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded border border-slate-100 text-center">
+        {language === 'en' 
+          ? "AI generated. Not a diagnosis. Consult a doctor." 
+          : "Được tạo bởi AI. Không phải chẩn đoán. Hãy hỏi bác sĩ."}
+      </div>
+
       {/* Summary Section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in">
         <div className="flex items-center mb-4">
@@ -45,7 +81,20 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
         </p>
       </div>
 
-      {/* Abnormal Findings (if any) */}
+      {/* Errors / Warnings Detected */}
+      {data.errorsDetected && data.errorsDetected.length > 0 && (
+        <div className="bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-6 animate-fade-in">
+           <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wide mb-2 flex items-center">
+             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+             {language === 'en' ? 'Data Quality Warnings' : 'Cảnh báo dữ liệu'}
+           </h3>
+           <ul className="list-disc list-inside text-sm text-amber-800 space-y-1">
+             {data.errorsDetected.map((err, i) => <li key={i}>{err}</li>)}
+           </ul>
+        </div>
+      )}
+
+      {/* Attention Needed */}
       {data.abnormalFindings.length > 0 && (
         <div className="bg-red-50 rounded-xl shadow-sm border border-red-100 p-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="flex items-center mb-4">
@@ -68,31 +117,40 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
 
       {/* Detailed Results Grid */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in" style={{ animationDelay: '0.2s' }}>
-        <div className="p-6 border-b border-slate-100 bg-slate-50">
+        <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-800">
             {language === 'en' ? 'Detailed Results' : 'Kết quả chi tiết'}
           </h2>
+          <span className="text-xs text-slate-400">Confidence Score</span>
         </div>
         <div className="divide-y divide-slate-100">
           {data.results.map((item, index) => (
             <div 
               key={index} 
-              className="p-6 hover:bg-slate-50 transition-colors stagger-item"
+              className="p-6 hover:bg-slate-50 transition-colors stagger-item group"
               style={{ animationDelay: `${0.3 + (index * 0.1)}s` }}
             >
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h4 className="font-semibold text-slate-900 text-lg">{item.test}</h4>
-                    <StatusBadge status={item.status} />
+                    <SeverityBadge severity={item.severity} status={item.status} />
+                    <ConfidenceIndicator score={item.confidence} />
                   </div>
-                  <p className="text-slate-600 text-sm mb-3">{item.explanation}</p>
+                  <p className="text-slate-600 text-sm mb-2">{item.explanation}</p>
+                  {item.notes && (
+                    <p className="text-xs text-amber-600 font-medium flex items-center bg-amber-50 inline-block px-2 py-1 rounded">
+                      ⚠️ {item.notes}
+                    </p>
+                  )}
                 </div>
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 min-w-[140px] md:text-right">
                   <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">
                     {language === 'en' ? 'Value' : 'Giá trị'}
                   </p>
-                  <p className="font-bold text-slate-800 text-lg break-words">{item.value}</p>
+                  <p className={`font-bold text-lg break-words ${item.status !== 'normal' ? 'text-blue-900' : 'text-slate-800'}`}>
+                    {item.value}
+                  </p>
                   <p className="text-xs text-slate-400 mt-1">
                     {language === 'en' ? 'Range: ' : 'Phạm vi: '} {item.normalRange}
                   </p>
@@ -111,19 +169,28 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-blue-800">
-              {language === 'en' ? 'Questions for your Doctor' : 'Câu hỏi cho Bác sĩ'}
-            </h3>
+            <div>
+              <h3 className="text-lg font-bold text-blue-800">
+                {language === 'en' ? 'Questions for your Doctor' : 'Câu hỏi cho Bác sĩ'}
+              </h3>
+              <p className="text-xs text-blue-600 mt-0.5">
+                 {language === 'en' ? 'Click to ask AI assistant' : 'Bấm vào để hỏi AI'}
+              </p>
+            </div>
           </div>
         <ul className="space-y-3">
           {data.suggestedQuestions.map((q, idx) => (
             <li 
               key={idx} 
-              className="flex items-start text-blue-900 bg-white p-3 rounded-lg border border-blue-100 shadow-sm hover:shadow-md transition-shadow cursor-default stagger-item"
+              onClick={() => setPrefilledMessage(q)}
+              className="flex items-start text-blue-900 bg-white p-3 rounded-lg border border-blue-100 shadow-sm hover:shadow-md hover:bg-blue-50 hover:border-blue-300 transition-all cursor-pointer stagger-item group active:scale-[0.99]"
               style={{ animationDelay: `${0.6 + (idx * 0.1)}s` }}
             >
-              <span className="font-bold mr-3 text-blue-500">{idx + 1}.</span>
-              {q}
+              <span className="font-bold mr-3 text-blue-300 group-hover:text-blue-500 transition-colors">{idx + 1}.</span>
+              <span className="flex-1">{q}</span>
+              <svg className="w-4 h-4 text-blue-200 group-hover:text-blue-500 mt-1 opacity-0 group-hover:opacity-100 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
             </li>
           ))}
         </ul>

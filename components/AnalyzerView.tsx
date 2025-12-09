@@ -209,7 +209,7 @@ const AnalyzerView: React.FC = () => {
 
               {/* Chat Interface */}
               <div className="sticky top-24">
-                <QAChat initialLanguage={language} documentSummary={analysisData.summary} />
+                <QAChat initialLanguage={language} analysisData={analysisData} />
               </div>
 
             </div>
