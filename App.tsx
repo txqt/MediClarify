@@ -2,6 +2,8 @@ import React from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { MedicalProvider, useMedical } from './context/MedicalContext';
 import AnalyzerView from './components/AnalyzerView';
+import HistoryView from './components/HistoryView';
+import ComparisonView from './components/ComparisonView';
 
 // --- About Page Component ---
 const AboutPage: React.FC = () => (
@@ -30,13 +32,15 @@ const AboutPage: React.FC = () => (
 
 // --- Navbar Component ---
 const Navbar: React.FC = () => {
-  const { language, setLanguage, isAnalyzing, resetApp, analysisData } = useMedical();
+  const { language, setLanguage, isAnalyzing, analysisData } = useMedical();
   const location = useLocation();
 
   const toggleLanguage = () => {
     if (isAnalyzing) return;
     setLanguage(language === 'en' ? 'vi' : 'en');
   };
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 shadow-sm transition-all duration-300">
@@ -54,13 +58,19 @@ const Navbar: React.FC = () => {
           <nav className="hidden md:flex gap-6">
             <Link 
               to="/" 
-              className={`text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+              className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
             >
               {analysisData ? (language === 'en' ? 'View Results' : 'Xem kết quả') : 'Analyzer'}
             </Link>
             <Link 
+              to="/history" 
+              className={`text-sm font-medium transition-colors ${isActive('/history') ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+            >
+              History
+            </Link>
+            <Link 
               to="/about" 
-              className={`text-sm font-medium transition-colors ${location.pathname === '/about' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
+              className={`text-sm font-medium transition-colors ${isActive('/about') ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
             >
               About
             </Link>
@@ -69,7 +79,7 @@ const Navbar: React.FC = () => {
 
         <div className="flex items-center gap-4">
            {/* Mobile Nav Link (simplified) */}
-           <Link to="/about" className="md:hidden text-sm text-slate-600 font-medium">About</Link>
+           <Link to="/history" className="md:hidden text-sm text-slate-600 font-medium">History</Link>
 
            <button
             onClick={toggleLanguage}
@@ -91,12 +101,10 @@ const Navbar: React.FC = () => {
 };
 
 // --- Floating Status Component ---
-// Shows when analysis is running in background but user is on another page
 const FloatingStatus: React.FC = () => {
   const { isAnalyzing, error, analysisData, language } = useMedical();
   const location = useLocation();
 
-  // If we are on the home page, the main UI shows the status, so hide this
   if (location.pathname === '/') return null;
 
   if (isAnalyzing) {
@@ -142,7 +150,6 @@ const FloatingStatus: React.FC = () => {
     );
   }
 
-  // Check if we have active results but are not on the view
   if (analysisData) {
     return (
       <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
@@ -179,6 +186,8 @@ const AppContent: React.FC = () => {
       <main className="max-w-5xl mx-auto px-4 py-8">
         <Routes>
           <Route path="/" element={<AnalyzerView />} />
+          <Route path="/history" element={<HistoryView />} />
+          <Route path="/compare" element={<ComparisonView />} />
           <Route path="/about" element={<AboutPage />} />
         </Routes>
       </main>

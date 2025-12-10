@@ -30,6 +30,7 @@ export interface GlossaryItem {
 }
 
 export interface AnalysisData {
+  documentType: 'Blood Test' | 'Urinalysis' | 'Prescription' | 'Radiology Report' | 'Discharge Summary' | 'Other';
   summary: string;
   results: MedicalTestResult[];
   abnormalFindings: string[]; // High-level "Attention Needed" items
@@ -63,4 +64,13 @@ export interface FileData {
 
 export interface UserSettings {
   apiKey?: string;
+}
+
+export interface HistoryItem {
+  id: string;
+  date: number; // timestamp
+  fileName: string;
+  previewUrl: string; // Blob URL or base64 thumbnail
+  data: AnalysisData;
+  documentType: string;
 }

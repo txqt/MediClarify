@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AnalysisData, FileData, Language, UserSettings } from '../types';
+import { AnalysisData, FileData, Language, UserSettings, HistoryItem } from '../types';
 import { analyzeDocument, initializeChat, setCustomApiKey } from '../services/geminiService';
 
 interface MedicalContextType {
@@ -15,6 +15,12 @@ interface MedicalContextType {
   updateSettings: (settings: UserSettings) => void;
   prefilledMessage: string;
   setPrefilledMessage: (msg: string) => void;
+  
+  // History & Comparison
+  history: HistoryItem[];
+  deleteHistoryItem: (id: string) => void;
+  compareItems: HistoryItem[]; // Max 2 items
+  setCompareItems: (items: HistoryItem[]) => void;
 }
 
 const MedicalContext = createContext<MedicalContextType | undefined>(undefined);
@@ -36,6 +42,15 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     return stored ? JSON.parse(stored) : {};
   });
 
+  // History State
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    const stored = localStorage.getItem('medicalHistory');
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  // Comparison State
+  const [compareItems, setCompareItems] = useState<HistoryItem[]>([]);
+
   const updateSettings = (newSettings: UserSettings) => {
     setSettingsState(newSettings);
     localStorage.setItem('userSettings', JSON.stringify(newSettings));
@@ -50,30 +65,49 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, []);
 
+  // Save history to local storage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('medicalHistory', JSON.stringify(history));
+  }, [history]);
+
+  const addToHistory = (fileData: FileData, data: AnalysisData) => {
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      date: Date.now(),
+      fileName: fileData.file.name,
+      previewUrl: fileData.previewUrl, // Note: Blob URLs might expire if not handled, but for this session it's ok. For permanent storage, IndexedDB is better for images.
+      data: data,
+      documentType: data.documentType
+    };
+    setHistory(prev => [newItem, ...prev]);
+  };
+
+  const deleteHistoryItem = (id: string) => {
+    setHistory(prev => prev.filter(item => item.id !== id));
+    setCompareItems(prev => prev.filter(item => item.id !== id));
+  };
+
   const performAnalysis = async (data: FileData, lang: Language) => {
     // 1. Check Cache first
     if (analysisCache[lang]) {
       setAnalysisData(analysisCache[lang]!);
-      // IMPORTANT: Even if we have cached analysis, we must re-initialize chat 
-      // so the bot system prompt knows the current language context.
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
       return;
     }
 
     // 2. If not in cache, call API
-    // Clear current data to show loading state immediately
     setAnalysisData(null); 
     setIsAnalyzing(true);
     setError(null);
     try {
-      // Get structured JSON Analysis
       const result = await analyzeDocument(data.base64, data.mimeType, lang, settings.apiKey);
       
-      // Update data and Cache
       setAnalysisData(result);
       setAnalysisCache(prev => ({ ...prev, [lang]: result }));
+      
+      // Auto-save to history on first successful analysis
+      addToHistory(data, result);
 
-      // Initialize Chat Session for Q&A context
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
     } catch (err) {
       console.error(err);
@@ -90,13 +124,12 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   const handleFileUpload = (data: FileData) => {
     setFileData(data);
     setAnalysisData(null);
-    setAnalysisCache({}); // Clear cache because this is a new file
+    setAnalysisCache({}); 
     performAnalysis(data, language);
   };
 
   const updateLanguage = (newLang: Language) => {
     setLanguage(newLang);
-    // If we have a file, trigger analysis (which will check cache first)
     if (fileData && !isAnalyzing) {
       performAnalysis(fileData, newLang);
     }
@@ -105,7 +138,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   const resetApp = () => {
     setFileData(null);
     setAnalysisData(null);
-    setAnalysisCache({}); // Clear cache on reset
+    setAnalysisCache({}); 
     setError(null);
     setPrefilledMessage('');
   };
@@ -123,7 +156,11 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
       settings,
       updateSettings,
       prefilledMessage,
-      setPrefilledMessage
+      setPrefilledMessage,
+      history,
+      deleteHistoryItem,
+      compareItems,
+      setCompareItems
     }}>
       {children}
     </MedicalContext.Provider>

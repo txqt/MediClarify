@@ -19,6 +19,11 @@ export const setCustomApiKey = (key: string) => {
 const analysisSchema: Schema = {
   type: Type.OBJECT,
   properties: {
+    documentType: {
+      type: Type.STRING,
+      enum: ["Blood Test", "Urinalysis", "Prescription", "Radiology Report", "Discharge Summary", "Other"],
+      description: "Classify the type of medical document.",
+    },
     summary: {
       type: Type.STRING,
       description: "High-level summary (2-4 sentences) explaining the overall health picture in simple language.",
@@ -121,7 +126,7 @@ const analysisSchema: Schema = {
       description: "A professionally formatted Markdown string containing Summary, Risk Score, List of Abnormalities, and Action Plan. Ready for export."
     }
   },
-  required: ["summary", "results", "abnormalFindings", "suggestedQuestions", "overallRiskLevel", "overallRiskScore", "actionPlan", "glossary", "printableReport"],
+  required: ["documentType", "summary", "results", "abnormalFindings", "suggestedQuestions", "overallRiskLevel", "overallRiskScore", "actionPlan", "glossary", "printableReport"],
 };
 
 export const analyzeDocument = async (
@@ -138,6 +143,9 @@ export const analyzeDocument = async (
       Output Language: ${langName}
 
       TASK: Analyze the provided medical document (Lab Results, Report, etc.) and return a structured JSON response.
+
+      IMPORTANT - CLASSIFICATION:
+      - You MUST classify the document into one of these types: "Blood Test", "Urinalysis", "Prescription", "Radiology Report", "Discharge Summary", or "Other".
 
       SAFETY & ACCURACY RULES:
       1. **10x Outlier Check**: If a value is >10x the upper limit of the normal range, flag it as 'critical' status and add a note: "Possible OCR/Data error: Value is >10x normal limit."
