@@ -81,9 +81,47 @@ const analysisSchema: Schema = {
       type: Type.ARRAY,
       items: { type: Type.STRING },
       description: "List of general range mistakes, unit mismatches, or unreadable fields.",
+    },
+    // New Features
+    actionPlan: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          category: { 
+            type: Type.STRING, 
+            enum: ['Medical', 'Diet', 'Lifestyle', 'Data Verification', 'Other'],
+            description: "Category of the action."
+          },
+          priority: { 
+            type: Type.STRING, 
+            enum: ['High', 'Medium', 'Low'],
+            description: "Urgency of the action."
+          },
+          action: { type: Type.STRING, description: "Short, clear action step (max 15 words)." }
+        },
+        required: ["category", "priority", "action"]
+      },
+      description: "A consolidated list of recommended actions."
+    },
+    glossary: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          term: { type: Type.STRING, description: "The medical term." },
+          definition: { type: Type.STRING, description: "Simple 1-sentence definition." }
+        },
+        required: ["term", "definition"]
+      },
+      description: "Definitions for complex terms found in the document."
+    },
+    printableReport: {
+      type: Type.STRING,
+      description: "A professionally formatted Markdown string containing Summary, Risk Score, List of Abnormalities, and Action Plan. Ready for export."
     }
   },
-  required: ["summary", "results", "abnormalFindings", "suggestedQuestions", "overallRiskLevel", "overallRiskScore"],
+  required: ["summary", "results", "abnormalFindings", "suggestedQuestions", "overallRiskLevel", "overallRiskScore", "actionPlan", "glossary", "printableReport"],
 };
 
 export const analyzeDocument = async (
@@ -119,6 +157,21 @@ export const analyzeDocument = async (
       RISK ASSESSMENT:
       - Calculate an 'overallRiskScore' (0-100) based on the number and severity of abnormal results.
       - Assign 'overallRiskLevel': 'low' (all normal), 'moderate' (minor issues), 'high' (concerning values), 'critical' (urgent values).
+
+      ACTION PLAN GENERATION:
+      - Generate a structured 'actionPlan' based on abnormal/critical findings.
+      - **Merge & Consolidate**: Group duplicate or related actions (e.g., combine multiple diet advice into one).
+      - **Categorization Rule**: Group into 'Medical', 'Diet', 'Lifestyle', or 'Data Verification'.
+      - **Priority Rule**: Sort High -> Medium -> Low.
+      - **Clarity**: Keep actions short, specific, and actionable.
+
+      SMART GLOSSARY:
+      - Identify 3-5 complex terms (e.g. Leukocytes, Creatinine) and define them simply.
+
+      EXPORT PREPARATION:
+      - Fill 'printableReport' with a clean Markdown formatted string. 
+      - Include: Patient Summary, Risk Score, Bullet list of Abnormal Findings, and the consolidated Action Plan.
+      - Do not use JSON syntax in 'printableReport'.
 
       Analyze the attached image/PDF and return the JSON.
     `;

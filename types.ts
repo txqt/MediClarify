@@ -18,6 +18,17 @@ export interface MedicalTestResult {
   unit?: string;
 }
 
+export interface ActionItem {
+  category: 'Medical' | 'Diet' | 'Lifestyle' | 'Data Verification' | 'Other';
+  priority: 'High' | 'Medium' | 'Low';
+  action: string;
+}
+
+export interface GlossaryItem {
+  term: string;
+  definition: string;
+}
+
 export interface AnalysisData {
   summary: string;
   results: MedicalTestResult[];
@@ -29,6 +40,11 @@ export interface AnalysisData {
   overallRiskLevel: 'low' | 'moderate' | 'high' | 'critical';
   overallRiskScore: number; // 0-100
   disclaimerNote?: string; // Dynamic safety disclaimer
+  
+  // New Features
+  actionPlan: ActionItem[];
+  glossary: GlossaryItem[];
+  printableReport: string; // Markdown string
 }
 
 export interface ChatMessage {
