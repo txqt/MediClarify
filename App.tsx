@@ -30,7 +30,7 @@ const AboutPage: React.FC = () => (
 
 // --- Navbar Component ---
 const Navbar: React.FC = () => {
-  const { language, setLanguage, isAnalyzing, resetApp } = useMedical();
+  const { language, setLanguage, isAnalyzing, resetApp, analysisData } = useMedical();
   const location = useLocation();
 
   const toggleLanguage = () => {
@@ -56,7 +56,7 @@ const Navbar: React.FC = () => {
               to="/" 
               className={`text-sm font-medium transition-colors ${location.pathname === '/' ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
             >
-              Analyzer
+              {analysisData ? (language === 'en' ? 'View Results' : 'Xem kết quả') : 'Analyzer'}
             </Link>
             <Link 
               to="/about" 
@@ -93,7 +93,7 @@ const Navbar: React.FC = () => {
 // --- Floating Status Component ---
 // Shows when analysis is running in background but user is on another page
 const FloatingStatus: React.FC = () => {
-  const { isAnalyzing, error } = useMedical();
+  const { isAnalyzing, error, analysisData, language } = useMedical();
   const location = useLocation();
 
   // If we are on the home page, the main UI shows the status, so hide this
@@ -108,11 +108,15 @@ const FloatingStatus: React.FC = () => {
             <div className="absolute top-0 left-0 w-3 h-3 bg-blue-500 rounded-full animate-ping"></div>
           </div>
           <div>
-            <p className="font-semibold text-slate-800 text-sm">Analyzing Document...</p>
-            <p className="text-xs text-slate-500">You can keep browsing</p>
+            <p className="font-semibold text-slate-800 text-sm">
+              {language === 'en' ? 'Analyzing Document...' : 'Đang phân tích...'}
+            </p>
+            <p className="text-xs text-slate-500">
+              {language === 'en' ? 'You can keep browsing' : 'Bạn có thể tiếp tục duyệt web'}
+            </p>
           </div>
           <Link to="/" className="text-xs font-bold text-blue-600 hover:text-blue-800">
-            View
+            {language === 'en' ? 'View' : 'Xem'}
           </Link>
         </div>
       </div>
@@ -125,13 +129,41 @@ const FloatingStatus: React.FC = () => {
         <div className="bg-white rounded-lg shadow-lg border border-red-100 p-4 flex items-center gap-4 max-w-sm">
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>
           <div>
-            <p className="font-semibold text-red-800 text-sm">Analysis Failed</p>
+            <p className="font-semibold text-red-800 text-sm">
+              {language === 'en' ? 'Analysis Failed' : 'Phân tích thất bại'}
+            </p>
             <p className="text-xs text-slate-500">Check analyzer for details</p>
           </div>
           <Link to="/" className="text-xs font-bold text-red-600 hover:text-red-800">
-            View
+            {language === 'en' ? 'View' : 'Xem'}
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  // Check if we have active results but are not on the view
+  if (analysisData) {
+    return (
+      <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
+        <Link 
+          to="/" 
+          className="bg-white rounded-lg shadow-lg border border-emerald-100 p-4 flex items-center gap-4 max-w-sm hover:shadow-xl transition-all group"
+        >
+          <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-800 text-sm">
+              {language === 'en' ? 'Results Available' : 'Kết quả đã sẵn sàng'}
+            </p>
+            <p className="text-xs text-slate-500">
+              {language === 'en' ? 'Click to view analysis' : 'Nhấn để xem phân tích'}
+            </p>
+          </div>
+        </Link>
       </div>
     );
   }
