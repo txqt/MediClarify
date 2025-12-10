@@ -9,10 +9,59 @@ interface FileUploadProps {
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false); // Local processing state (reading file)
+  const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Helper: Optimize Image (Resize & Compress)
+  const optimizeImage = (file: File): Promise<{ base64: string, previewUrl: string, mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimension limit (1568px is optimal for Gemini Vision to avoid tiling overhead)
+          const MAX_DIMENSION = 1568; 
+
+          if (width > height) {
+            if (width > MAX_DIMENSION) {
+              height *= MAX_DIMENSION / width;
+              width = MAX_DIMENSION;
+            }
+          } else {
+            if (height > MAX_DIMENSION) {
+              width *= MAX_DIMENSION / height;
+              height = MAX_DIMENSION;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Compress to JPEG with 0.8 quality
+          const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          const base64 = optimizedDataUrl.split(',')[1];
+          
+          resolve({
+            base64,
+            previewUrl: optimizedDataUrl,
+            mimeType: 'image/jpeg'
+          });
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
 
   const processFile = async (file: File) => {
     setError(null);
@@ -22,43 +71,47 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) { // 10MB
-      setError("File size must be under 10MB.");
+    if (file.size > 20 * 1024 * 1024) { // 20MB limit (Flash handles larger files, but we optimize anyway)
+      setError("File size must be under 20MB.");
       return;
     }
 
     setIsProcessing(true);
     setUploadProgress(0);
 
-    // Simulate upload progress for better UX
+    // Simulate upload progress
     const interval = setInterval(() => {
       setUploadProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          return 90;
-        }
+        if (prev >= 80) return 80;
         return prev + 10;
       });
     }, 100);
 
     try {
-      const base64 = await fileToBase64(file);
-      const previewUrl = URL.createObjectURL(file);
+      let result;
       
+      // If it's an image, optimize it. If PDF, use raw.
+      if (file.type.startsWith('image/')) {
+        result = await optimizeImage(file);
+      } else {
+        const base64 = await fileToBase64(file);
+        const previewUrl = URL.createObjectURL(file);
+        result = { base64, previewUrl, mimeType: file.type };
+      }
+
       clearInterval(interval);
       setUploadProgress(100);
 
-      // Small delay to show 100%
       setTimeout(() => {
         onFileUpload({
-          file,
-          base64,
-          previewUrl,
-          mimeType: file.type
+          file, // Keep original file object for reference/name
+          base64: result.base64,
+          previewUrl: result.previewUrl,
+          mimeType: result.mimeType
         });
         setIsProcessing(false);
         setUploadProgress(0);
-      }, 500);
+      }, 300);
       
     } catch (err) {
       clearInterval(interval);
@@ -132,7 +185,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
                   Click to upload or drag and drop
                 </p>
                 <p className="text-sm text-slate-500 mt-1">
-                  Supports JPG, PNG, PDF (Max 10MB)
+                  We optimize images automatically for faster results.
                 </p>
               </div>
             </>
@@ -140,10 +193,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, disabled }) => {
             <div className="max-w-xs mx-auto">
               <div className="w-16 h-16 mx-auto mb-4 bg-blue-50 rounded-full flex items-center justify-center animate-pulse">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-blue-500">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
                 </svg>
               </div>
-              <p className="text-slate-700 font-medium mb-2">Preparing File...</p>
+              <p className="text-slate-700 font-medium mb-2">Optimizing & Analyzing...</p>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden w-full">
                 <div 
                   className="h-full bg-blue-600 transition-all duration-300 ease-out"
