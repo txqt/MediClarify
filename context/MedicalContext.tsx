@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AnalysisData, FileData, Language, UserSettings } from '../types';
 import { analyzeDocument, initializeChat, setCustomApiKey } from '../services/geminiService';
@@ -23,6 +24,10 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [language, setLanguage] = useState<Language>('en');
   const [fileData, setFileData] = useState<FileData | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  
+  // Cache to store analysis results per language for the current file
+  const [analysisCache, setAnalysisCache] = useState<Partial<Record<Language, AnalysisData>>>({});
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prefilledMessage, setPrefilledMessage] = useState('');
@@ -47,14 +52,27 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const performAnalysis = async (data: FileData, lang: Language) => {
+    // 1. Check Cache first
+    if (analysisCache[lang]) {
+      setAnalysisData(analysisCache[lang]!);
+      // IMPORTANT: Even if we have cached analysis, we must re-initialize chat 
+      // so the bot system prompt knows the current language context.
+      initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
+      return;
+    }
+
+    // 2. If not in cache, call API
     setIsAnalyzing(true);
     setError(null);
     try {
-      // 1. Get structured JSON Analysis
+      // Get structured JSON Analysis
       const result = await analyzeDocument(data.base64, data.mimeType, lang, settings.apiKey);
+      
+      // Update data and Cache
       setAnalysisData(result);
+      setAnalysisCache(prev => ({ ...prev, [lang]: result }));
 
-      // 2. Initialize Chat Session for Q&A context
+      // Initialize Chat Session for Q&A context
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
     } catch (err) {
       console.error(err);
@@ -70,13 +88,14 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const handleFileUpload = (data: FileData) => {
     setFileData(data);
-    setAnalysisData(null); // Clear previous results
+    setAnalysisData(null);
+    setAnalysisCache({}); // Clear cache because this is a new file
     performAnalysis(data, language);
   };
 
   const updateLanguage = (newLang: Language) => {
     setLanguage(newLang);
-    // If we have a file and results, re-analyze in the new language automatically
+    // If we have a file, trigger analysis (which will check cache first)
     if (fileData && !isAnalyzing) {
       performAnalysis(fileData, newLang);
     }
@@ -85,6 +104,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   const resetApp = () => {
     setFileData(null);
     setAnalysisData(null);
+    setAnalysisCache({}); // Clear cache on reset
     setError(null);
     setPrefilledMessage('');
   };
