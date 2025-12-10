@@ -73,8 +73,8 @@ const RangeVisualizer: React.FC<{ item: MedicalTestResult }> = ({ item }) => {
         
         {/* Value Dot */}
         <div 
-          className={`absolute top-1/2 -mt-1.5 w-3 h-3 rounded-full shadow-sm ring-2 ${dotColor} transition-all duration-500`}
-          style={{ left: `${valPct}%`, transform: 'translateX(-50%) translateY(-50%)' }}
+          className={`absolute top-1/2 w-3 h-3 rounded-full shadow-sm ring-2 ${dotColor} transition-all duration-500`}
+          style={{ left: `${valPct}%`, transform: 'translate(-50%, -50%)' }}
         ></div>
       </div>
       <div className="flex justify-between text-[10px] text-slate-400 font-medium">
@@ -166,7 +166,8 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
               <p className="text-sm text-red-700 mb-2">
                 {language === 'en' 
                   ? 'We detected potential errors or biologically impossible values. Please verify these specific results against your original document.'
-                  : 'Phát hiện giá trị bất thường hoặc không thể xảy ra. Vui lòng kiểm tra lại so với tài liệu gốc.'}
+                  : 'Phát hiện giá trị bất thường hoặc không thể xảy ra. Vui lòng kiểm tra lại so với tài liệu gốc.'
+                }
               </p>
               <div className="flex flex-wrap gap-2">
                 {suspiciousValues.map((v, i) => (
