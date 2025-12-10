@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema, Chat } from "@google/genai";
-import { AnalysisData, Language } from "../types";
+import { AnalysisData, Language, ChatMessage } from "../types";
 
 // Helper to get client (handling dynamic API key)
 const getAiClient = (customKey?: string) => {
@@ -217,6 +217,8 @@ export const analyzeDocument = async (
 
 let chatSession: Chat | null = null;
 
+const SYSTEM_INSTRUCTION = "You are a helpful, empathetic medical interpreter. You support two modes: Simple (patient-friendly) and Technical (doctor-friendly). Adjust your tone based on the user's questions. Always prioritize safety and refuse diagnosis.";
+
 export const initializeChat = (base64Data: string, mimeType: string, language: Language, apiKey?: string) => {
   const ai = getAiClient(apiKey);
   const langName = language === 'vi' ? 'Vietnamese' : 'English';
@@ -248,7 +250,56 @@ export const initializeChat = (base64Data: string, mimeType: string, language: L
       },
     ],
     config: {
-        systemInstruction: "You are a helpful, empathetic medical interpreter. You support two modes: Simple (patient-friendly) and Technical (doctor-friendly). Adjust your tone based on the user's questions. Always prioritize safety and refuse diagnosis."
+        systemInstruction: SYSTEM_INSTRUCTION
+    }
+  });
+};
+
+export const restoreChatSession = (
+  base64Data: string, 
+  mimeType: string, 
+  language: Language, 
+  chatHistory: ChatMessage[],
+  apiKey?: string
+) => {
+  const ai = getAiClient(apiKey);
+  const langName = language === 'vi' ? 'Vietnamese' : 'English';
+
+  // Reconstruct history
+  // Start with the Document context
+  const historyParts: any[] = [
+    {
+      role: "user",
+      parts: [
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Data,
+          },
+        },
+        {
+          text: `This is my medical document. I may have follow-up questions. Please answer in ${langName}.`,
+        },
+      ],
+    }
+    // Note: We do NOT hardcode the initial model response here because 
+    // the restored chatHistory likely contains the model's greeting/initial response.
+    // If we added it, we'd have duplicate model messages.
+  ];
+
+  // Append existing messages
+  chatHistory.forEach(msg => {
+    historyParts.push({
+      role: msg.role,
+      parts: [{ text: msg.text }]
+    });
+  });
+
+  chatSession = ai.chats.create({
+    model: "gemini-3-pro-preview",
+    history: historyParts,
+    config: {
+        systemInstruction: SYSTEM_INSTRUCTION
     }
   });
 };

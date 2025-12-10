@@ -73,4 +73,9 @@ export interface HistoryItem {
   previewUrl: string; // Blob URL or base64 thumbnail
   data: AnalysisData;
   documentType: string;
+  
+  // Persistence
+  base64?: string; // Original file content for chat context
+  mimeType?: string;
+  chatHistory?: ChatMessage[]; // Saved chat messages
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AnalysisData, FileData, Language, UserSettings, HistoryItem, ChatMessage } from '../types';
-import { analyzeDocument, initializeChat, setCustomApiKey, sendChatMessage } from '../services/geminiService';
+import { analyzeDocument, initializeChat, restoreChatSession, setCustomApiKey, sendChatMessage } from '../services/geminiService';
 
 interface MedicalContextType {
   language: Language;
@@ -21,7 +21,7 @@ interface MedicalContextType {
   deleteHistoryItem: (id: string) => void;
   compareItems: HistoryItem[]; // Max 2 items
   setCompareItems: (items: HistoryItem[]) => void;
-  loadHistoryItem: (id: string) => void; // New function
+  loadHistoryItem: (id: string) => void; 
 
   // Global Chat State
   chatMessages: ChatMessage[];
@@ -48,6 +48,9 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   
+  // Track active history item to autosave chat
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+
   const [settings, setSettingsState] = useState<UserSettings>(() => {
     const stored = localStorage.getItem('userSettings');
     return stored ? JSON.parse(stored) : {};
@@ -78,51 +81,100 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Save history to local storage whenever it changes
   useEffect(() => {
-    localStorage.setItem('medicalHistory', JSON.stringify(history));
+    try {
+      localStorage.setItem('medicalHistory', JSON.stringify(history));
+    } catch (e) {
+      console.warn("LocalStorage quota exceeded or error saving history", e);
+      // Optional: Logic to trim old history if quota exceeded could go here
+    }
   }, [history]);
 
+  // Autosave chat to active history item
+  useEffect(() => {
+    if (currentHistoryId && chatMessages.length > 0) {
+      setHistory(prev => prev.map(item => {
+        if (item.id === currentHistoryId) {
+          // Check if chat has actually changed to avoid unnecessary renders/updates
+          if (JSON.stringify(item.chatHistory) === JSON.stringify(chatMessages)) {
+            return item;
+          }
+          return { ...item, chatHistory: chatMessages };
+        }
+        return item;
+      }));
+    }
+  }, [chatMessages, currentHistoryId]);
+
   const addToHistory = (fileData: FileData, data: AnalysisData) => {
+    const newId = Date.now().toString();
     const newItem: HistoryItem = {
-      id: Date.now().toString(),
+      id: newId,
       date: Date.now(),
       fileName: fileData.file.name,
       previewUrl: fileData.previewUrl, 
       data: data,
-      documentType: data.documentType
+      documentType: data.documentType,
+      base64: fileData.base64,
+      mimeType: fileData.mimeType,
+      chatHistory: [] 
     };
+    
+    // Set current active ID so future chats save to this item
+    setCurrentHistoryId(newId);
     setHistory(prev => [newItem, ...prev]);
   };
 
   const deleteHistoryItem = (id: string) => {
     setHistory(prev => prev.filter(item => item.id !== id));
     setCompareItems(prev => prev.filter(item => item.id !== id));
+    if (currentHistoryId === id) setCurrentHistoryId(null);
   };
 
   const loadHistoryItem = (id: string) => {
     const item = history.find(i => i.id === id);
     if (!item) return;
 
+    setCurrentHistoryId(item.id);
+
     // Restore Analysis Data
     setAnalysisData(item.data);
     
     // Attempt to reconstruct File Data state
-    // Note: We might only have the Base64 preview (if it was an image), not the full original file if it was a PDF.
     const isDataUrl = item.previewUrl && item.previewUrl.startsWith('data:');
     
     setFileData({
-      file: new File([], item.fileName), // Dummy file object to satisfy type
+      file: new File([], item.fileName), // Dummy file object
       previewUrl: item.previewUrl,
-      base64: isDataUrl ? item.previewUrl.split(',')[1] : '', // Extract base64 if available for chat context
-      mimeType: item.previewUrl.startsWith('data:image') ? 'image/jpeg' : 'application/pdf'
+      base64: item.base64 || (isDataUrl ? item.previewUrl.split(',')[1] : ''),
+      mimeType: item.mimeType || (item.previewUrl.startsWith('data:image') ? 'image/jpeg' : 'application/pdf')
     });
     
     // Reset other states
     setAnalysisCache({}); 
     setError(null);
     setPrefilledMessage('');
-    // We clear chat because this is a "fresh" look at an old result. 
-    // (We don't currently save chat history in HistoryItem)
-    setChatMessages([]); 
+    
+    // Restore Chat
+    if (item.chatHistory && item.chatHistory.length > 0) {
+      setChatMessages(item.chatHistory);
+      
+      // Restore Gemini Session if base64 is available
+      if (item.base64 && item.mimeType) {
+        restoreChatSession(
+          item.base64, 
+          item.mimeType, 
+          language, 
+          item.chatHistory, 
+          settings.apiKey
+        );
+      }
+    } else {
+      setChatMessages([]); 
+      // Initialize fresh chat if no history exists yet
+      if (item.base64 && item.mimeType) {
+        initializeChat(item.base64, item.mimeType, language, settings.apiKey);
+      }
+    }
   };
 
   // --- Chat Logic ---
@@ -140,7 +192,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     setIsChatLoading(true);
 
     try {
-      // 2. Call API (State updates continue even if user navigates away)
+      // 2. Call API 
       const responseText = await sendChatMessage(textInput);
       
       const botMsg: ChatMessage = {
@@ -165,7 +217,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const addSystemMessage = (text: string) => {
-    // Only add if chat is empty to prevent duplicates on remount
+    // Only add if chat is empty
     if (chatMessages.length === 0) {
       setChatMessages([{
         id: 'init',
@@ -177,15 +229,20 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const performAnalysis = async (data: FileData, lang: Language) => {
-    // Reset chat when analyzing a new file or language switch if needed
+    // Reset chat when analyzing a new file
+    // Note: If we are just switching language for existing file, maybe keep chat? 
+    // For now, simple approach: Clear chat on re-analysis to match language context.
     if (!analysisCache[lang]) {
         setChatMessages([]); 
+        setCurrentHistoryId(null); // Will be set in addToHistory
     }
 
     // 1. Check Cache first
     if (analysisCache[lang]) {
       setAnalysisData(analysisCache[lang]!);
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
+      // Note: If we had a history ID for this cache, we should theoretically restore it.
+      // But simple cache implementation here assumes fresh analysis for now.
       return;
     }
 
@@ -193,7 +250,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     setAnalysisData(null); 
     setIsAnalyzing(true);
     setError(null);
-    setChatMessages([]); // Clear chat for new analysis
+    setChatMessages([]); 
 
     try {
       const result = await analyzeDocument(data.base64, data.mimeType, lang, settings.apiKey);
@@ -201,7 +258,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
       setAnalysisData(result);
       setAnalysisCache(prev => ({ ...prev, [lang]: result }));
       
-      // Auto-save to history on first successful analysis
+      // Auto-save to history
       addToHistory(data, result);
 
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
@@ -221,7 +278,6 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     setFileData(data);
     setAnalysisData(null);
     setAnalysisCache({}); 
-    // Chat reset happens in performAnalysis
     performAnalysis(data, language);
   };
 
@@ -238,8 +294,9 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     setAnalysisCache({}); 
     setError(null);
     setPrefilledMessage('');
-    setChatMessages([]); // Clear chat
+    setChatMessages([]); 
     setIsChatLoading(false);
+    setCurrentHistoryId(null);
   };
 
   return (
