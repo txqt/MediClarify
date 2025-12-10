@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AnalysisData, FileData, Language, UserSettings } from '../types';
 import { analyzeDocument, initializeChat, setCustomApiKey } from '../services/geminiService';
@@ -62,6 +61,8 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
 
     // 2. If not in cache, call API
+    // Clear current data to show loading state immediately
+    setAnalysisData(null); 
     setIsAnalyzing(true);
     setError(null);
     try {

@@ -34,6 +34,7 @@ const Navbar: React.FC = () => {
   const location = useLocation();
 
   const toggleLanguage = () => {
+    if (isAnalyzing) return;
     setLanguage(language === 'en' ? 'vi' : 'en');
   };
 
@@ -72,7 +73,12 @@ const Navbar: React.FC = () => {
 
            <button
             onClick={toggleLanguage}
-            className="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all text-sm font-medium active:scale-95"
+            disabled={isAnalyzing}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 transition-all text-sm font-medium 
+              ${isAnalyzing 
+                ? 'opacity-50 cursor-not-allowed bg-slate-50' 
+                : 'hover:bg-slate-50 hover:border-slate-300 active:scale-95'}
+            `}
           >
             <span className={language === 'en' ? 'text-blue-600 font-bold' : 'text-slate-400'}>EN</span>
             <span className="text-slate-300">|</span>
