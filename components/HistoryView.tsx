@@ -4,7 +4,7 @@ import { HistoryItem, Language } from '../types';
 import { useNavigate } from 'react-router-dom';
 
 const HistoryView: React.FC = () => {
-  const { history, deleteHistoryItem, compareItems, setCompareItems, language } = useMedical();
+  const { history, deleteHistoryItem, compareItems, setCompareItems, loadHistoryItem, language } = useMedical();
   const navigate = useNavigate();
 
   const toggleSelection = (item: HistoryItem) => {
@@ -14,9 +14,7 @@ const HistoryView: React.FC = () => {
       setCompareItems(compareItems.filter(i => i.id !== item.id));
     } else {
       if (compareItems.length >= 2) {
-        // Replace the oldest selection or just block? Let's just block for now or shift.
-        // Better UX: Allow selecting, but if > 2, warn or auto-deselect. 
-        // Simple: If 2 are selected, remove the first one and add new one.
+        // If 2 are selected, remove the first one and add new one to keep it user friendly
         const [first, ...rest] = compareItems;
         setCompareItems([...rest, item]);
       } else {
@@ -35,7 +33,12 @@ const HistoryView: React.FC = () => {
     }
   };
 
-  // Group history by document type for better UX? Or just simple list. Simple list sorted by date.
+  const handleViewDetails = (id: string) => {
+    loadHistoryItem(id);
+    navigate('/');
+  };
+
+  // Sort by date descending
   const sortedHistory = [...history].sort((a, b) => b.date - a.date);
 
   if (history.length === 0) {
@@ -112,21 +115,21 @@ const HistoryView: React.FC = () => {
               key={item.id}
               onClick={() => toggleSelection(item)}
               className={`
-                relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group
+                relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group flex flex-col
                 ${isSelected 
                   ? 'border-blue-500 bg-blue-50 shadow-md' 
                   : 'border-white bg-white shadow-sm hover:border-blue-200 hover:shadow-md'}
               `}
             >
               {isSelected && (
-                <div className="absolute top-3 right-3 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center">
+                <div className="absolute top-3 right-3 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center z-10">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                     <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
                   </svg>
                 </div>
               )}
 
-              <div className="flex gap-4">
+              <div className="flex gap-4 mb-4">
                  {/* Thumbnail Placeholder */}
                  <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-200">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-slate-300">
@@ -142,7 +145,7 @@ const HistoryView: React.FC = () => {
                        <button 
                         onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
                         className="text-slate-400 hover:text-red-500 p-1 hover:bg-red-50 rounded-md transition-colors"
-                        title="Delete"
+                        title={language === 'en' ? 'Delete' : 'Xóa'}
                        >
                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
@@ -164,6 +167,23 @@ const HistoryView: React.FC = () => {
                        ) : null}
                     </div>
                  </div>
+              </div>
+              
+              {/* View Details Button */}
+              <div className="mt-auto pt-2 border-t border-slate-100">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent toggling selection
+                    handleViewDetails(item.id);
+                  }}
+                  className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-100 hover:text-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {language === 'en' ? 'View Full Analysis' : 'Xem chi tiết kết quả'}
+                </button>
               </div>
             </div>
           );

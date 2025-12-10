@@ -21,6 +21,7 @@ interface MedicalContextType {
   deleteHistoryItem: (id: string) => void;
   compareItems: HistoryItem[]; // Max 2 items
   setCompareItems: (items: HistoryItem[]) => void;
+  loadHistoryItem: (id: string) => void; // New function
 
   // Global Chat State
   chatMessages: ChatMessage[];
@@ -97,6 +98,33 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     setCompareItems(prev => prev.filter(item => item.id !== id));
   };
 
+  const loadHistoryItem = (id: string) => {
+    const item = history.find(i => i.id === id);
+    if (!item) return;
+
+    // Restore Analysis Data
+    setAnalysisData(item.data);
+    
+    // Attempt to reconstruct File Data state
+    // Note: We might only have the Base64 preview (if it was an image), not the full original file if it was a PDF.
+    const isDataUrl = item.previewUrl && item.previewUrl.startsWith('data:');
+    
+    setFileData({
+      file: new File([], item.fileName), // Dummy file object to satisfy type
+      previewUrl: item.previewUrl,
+      base64: isDataUrl ? item.previewUrl.split(',')[1] : '', // Extract base64 if available for chat context
+      mimeType: item.previewUrl.startsWith('data:image') ? 'image/jpeg' : 'application/pdf'
+    });
+    
+    // Reset other states
+    setAnalysisCache({}); 
+    setError(null);
+    setPrefilledMessage('');
+    // We clear chat because this is a "fresh" look at an old result. 
+    // (We don't currently save chat history in HistoryItem)
+    setChatMessages([]); 
+  };
+
   // --- Chat Logic ---
   const sendUserMessage = async (textInput: string) => {
     if (!textInput.trim() || isChatLoading) return;
@@ -150,8 +178,6 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const performAnalysis = async (data: FileData, lang: Language) => {
     // Reset chat when analyzing a new file or language switch if needed
-    // Note: If just language switch, we might want to keep history? 
-    // For now, let's clear chat on fresh analysis to avoid context mismatch.
     if (!analysisCache[lang]) {
         setChatMessages([]); 
     }
@@ -160,8 +186,6 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (analysisCache[lang]) {
       setAnalysisData(analysisCache[lang]!);
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
-      // We don't clear chat messages here if returning to same file, 
-      // but if it's a new file upload, handleFileUpload handles the reset.
       return;
     }
 
@@ -236,6 +260,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
       deleteHistoryItem,
       compareItems,
       setCompareItems,
+      loadHistoryItem,
       // Chat
       chatMessages,
       isChatLoading,
