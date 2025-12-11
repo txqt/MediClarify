@@ -1,4 +1,4 @@
-export type Language = 'en' | 'vi';
+export type Language = 'en' | 'vi' | 'zh' | 'ru' | 'fr';
 
 export interface MedicalTestResult {
   test: string;

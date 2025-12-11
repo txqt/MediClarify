@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AnalysisData, Language, MedicalTestResult } from '../types';
 import { useMedical } from '../context/MedicalContext';
+import { translations } from '../utils/translations';
 
 interface AnalysisResultsProps {
   data: AnalysisData;
@@ -91,6 +92,7 @@ const RangeVisualizer: React.FC<{ item: MedicalTestResult }> = ({ item }) => {
 const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => {
   const { setPrefilledMessage } = useMedical();
   const [viewMode, setViewMode] = useState<'simple' | 'technical'>('simple');
+  const t = translations[language];
 
   // Helper function to download markdown report
   const downloadReport = () => {
@@ -115,10 +117,10 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
   }[data.overallRiskLevel] || 'bg-slate-100 text-slate-800';
 
   const riskLabel = {
-    low: language === 'en' ? 'Low Risk' : 'Nguy cơ thấp',
-    moderate: language === 'en' ? 'Moderate Risk' : 'Nguy cơ trung bình',
-    high: language === 'en' ? 'High Risk' : 'Nguy cơ cao',
-    critical: language === 'en' ? 'Critical Attention Needed' : 'Cần chú ý khẩn cấp',
+    low: t.lowRisk,
+    moderate: t.modRisk,
+    high: t.highRisk,
+    critical: t.critRisk,
   }[data.overallRiskLevel];
 
   // Check for critical 10x errors
@@ -147,7 +149,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
       <div className={`rounded-xl shadow-sm border p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in ${riskColor}`}>
         <div>
           <h2 className="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">
-            {language === 'en' ? 'Overall Health Snapshot' : 'Tổng quan sức khỏe'}
+            {t.overallHealth}
           </h2>
           <div className="flex items-center gap-3">
             <div className="text-2xl font-bold">{riskLabel}</div>
@@ -172,7 +174,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
              className="px-3 py-1.5 text-xs font-bold rounded-md bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all flex items-center gap-2"
            >
              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-             Export Report
+             {t.exportReport}
            </button>
            
            <div className="flex bg-white/50 p-1 rounded-lg border border-black/5">
@@ -180,13 +182,13 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
               onClick={() => setViewMode('simple')}
               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'simple' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              {language === 'en' ? 'Patient' : 'Người bệnh'}
+              {t.patient}
             </button>
             <button
               onClick={() => setViewMode('technical')}
               className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'technical' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
-              {language === 'en' ? 'Doctor' : 'Bác sĩ'}
+              {t.doctor}
             </button>
           </div>
         </div>
@@ -201,13 +203,10 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
             </svg>
             <div>
               <h3 className="font-bold text-red-800">
-                {language === 'en' ? 'Data Verification Required' : 'Cần xác minh dữ liệu'}
+                {t.verifyData}
               </h3>
               <p className="text-sm text-red-700 mb-2">
-                {language === 'en' 
-                  ? 'We detected potential errors or biologically impossible values. Please verify these specific results against your original document.'
-                  : 'Phát hiện giá trị bất thường hoặc không thể xảy ra. Vui lòng kiểm tra lại so với tài liệu gốc.'
-                }
+                {t.verifyMsg}
               </p>
               <div className="flex flex-wrap gap-2">
                 {suspiciousValues.map((v, i) => (
@@ -225,7 +224,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in">
         <h2 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-           {language === 'en' ? 'Summary' : 'Tóm tắt'}
+           {t.summary}
         </h2>
         <p className="text-slate-600 leading-relaxed text-base">
           {data.summary}
@@ -238,7 +237,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
           <div className="p-4 border-b border-slate-100 bg-emerald-50/50">
             <h2 className="font-bold text-emerald-900 flex items-center gap-2">
                <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-               {language === 'en' ? 'Recommended Action Plan' : 'Kế hoạch hành động'}
+               {t.actionPlan}
             </h2>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -246,7 +245,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
               <div className="space-y-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-1">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-                  Medical Steps
+                  {t.medicalSteps}
                 </h3>
                 <ul className="space-y-2">
                   {actionGroups.Medical.map((item, i) => (
@@ -263,7 +262,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
               <div className="space-y-3">
                  <h3 className="text-xs font-bold uppercase tracking-wider text-green-700 flex items-center gap-1">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Diet & Lifestyle
+                  {t.dietLifestyle}
                 </h3>
                 <ul className="space-y-2">
                   {actionGroups.Diet.map((item, i) => (
@@ -280,7 +279,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
                <div className="space-y-3 col-span-1 md:col-span-2">
                  <h3 className="text-xs font-bold uppercase tracking-wider text-red-700 flex items-center gap-1">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Data Verification Needed
+                    {t.verificationNeeded}
                   </h3>
                    <ul className="space-y-2">
                     {actionGroups.Verification.map((item, i) => (
@@ -300,7 +299,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-fade-in" style={{ animationDelay: '0.1s' }}>
         <div className="p-4 border-b border-slate-100 bg-slate-50">
           <h2 className="font-bold text-slate-800">
-            {language === 'en' ? 'Detailed Analysis' : 'Phân tích chi tiết'}
+            {t.detailedAnalysis}
           </h2>
         </div>
         <div className="divide-y divide-slate-100">
@@ -325,7 +324,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
                       <p className="text-slate-600">{item.explanation}</p>
                     ) : (
                       <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 text-slate-700 text-xs font-medium">
-                        <span className="text-blue-600 font-bold block mb-1 uppercase tracking-wider text-[10px]">Clinical Context</span>
+                        <span className="text-blue-600 font-bold block mb-1 uppercase tracking-wider text-[10px]">{t.clinicalContext}</span>
                         {item.technicalExplanation || item.explanation}
                       </div>
                     )}
@@ -344,13 +343,13 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
                 <div className="md:w-48 flex-shrink-0 bg-slate-50/50 p-3 rounded-lg border border-slate-100/50 md:bg-transparent md:border-0 md:p-0">
                   <div className="flex justify-between md:flex-col md:items-end gap-1">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Value</span>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">{t.value}</span>
                       <span className={`font-bold ${item.status !== 'normal' ? 'text-blue-700' : 'text-slate-800'}`}>
                         {item.value} <span className="text-xs font-normal text-slate-500">{item.unit}</span>
                       </span>
                     </div>
                     <div className="text-right">
-                       <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Range</span>
+                       <span className="text-[10px] text-slate-400 uppercase tracking-wider block">{t.range}</span>
                       <span className="text-xs text-slate-600 font-medium">
                         {item.normalRange}
                       </span>
@@ -372,7 +371,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-6 animate-fade-in">
            <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
              <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-             Medical Glossary
+             {t.glossary}
            </h3>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
              {data.glossary.map((g, i) => (
@@ -388,7 +387,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ data, language }) => 
       <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
         <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-          {language === 'en' ? 'Ask Your Doctor' : 'Hỏi bác sĩ'}
+          {t.askDoctor}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {data.suggestedQuestions.map((q, idx) => (

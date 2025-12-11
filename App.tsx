@@ -4,6 +4,8 @@ import { MedicalProvider, useMedical } from './context/MedicalContext';
 import AnalyzerView from './components/AnalyzerView';
 import HistoryView from './components/HistoryView';
 import ComparisonView from './components/ComparisonView';
+import { translations } from './utils/translations';
+import { Language } from './types';
 
 // --- About Page Component ---
 const AboutPage: React.FC = () => (
@@ -34,10 +36,10 @@ const AboutPage: React.FC = () => (
 const Navbar: React.FC = () => {
   const { language, setLanguage, isAnalyzing, analysisData } = useMedical();
   const location = useLocation();
+  const t = translations[language];
 
-  const toggleLanguage = () => {
-    if (isAnalyzing) return;
-    setLanguage(language === 'en' ? 'vi' : 'en');
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLanguage(e.target.value as Language);
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -60,13 +62,13 @@ const Navbar: React.FC = () => {
               to="/" 
               className={`text-sm font-medium transition-colors ${isActive('/') ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
             >
-              {analysisData ? (language === 'en' ? 'View Results' : 'Xem kết quả') : 'Analyzer'}
+              {analysisData ? (language === 'en' ? 'View Results' : t.view) : 'Analyzer'}
             </Link>
             <Link 
               to="/history" 
               className={`text-sm font-medium transition-colors ${isActive('/history') ? 'text-blue-600' : 'text-slate-600 hover:text-blue-600'}`}
             >
-              History
+              {t.history}
             </Link>
             <Link 
               to="/about" 
@@ -79,21 +81,25 @@ const Navbar: React.FC = () => {
 
         <div className="flex items-center gap-4">
            {/* Mobile Nav Link (simplified) */}
-           <Link to="/history" className="md:hidden text-sm text-slate-600 font-medium">History</Link>
+           <Link to="/history" className="md:hidden text-sm text-slate-600 font-medium">{t.history}</Link>
 
-           <button
-            onClick={toggleLanguage}
-            disabled={isAnalyzing}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 transition-all text-sm font-medium 
-              ${isAnalyzing 
-                ? 'opacity-50 cursor-not-allowed bg-slate-50' 
-                : 'hover:bg-slate-50 hover:border-slate-300 active:scale-95'}
-            `}
-          >
-            <span className={language === 'en' ? 'text-blue-600 font-bold' : 'text-slate-400'}>EN</span>
-            <span className="text-slate-300">|</span>
-            <span className={language === 'vi' ? 'text-blue-600 font-bold' : 'text-slate-400'}>VI</span>
-          </button>
+           <div className="relative">
+             <select
+               value={language}
+               onChange={handleLanguageChange}
+               disabled={isAnalyzing}
+               className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 py-2 pl-3 pr-8 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+               <option value="en">English 🇺🇸</option>
+               <option value="vi">Tiếng Việt 🇻🇳</option>
+               <option value="zh">中文 🇨🇳</option>
+               <option value="ru">Русский 🇷🇺</option>
+               <option value="fr">Français 🇫🇷</option>
+             </select>
+             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
+               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+             </div>
+           </div>
         </div>
       </div>
     </header>
@@ -104,6 +110,7 @@ const Navbar: React.FC = () => {
 const FloatingStatus: React.FC = () => {
   const { isAnalyzing, error, analysisData, language } = useMedical();
   const location = useLocation();
+  const t = translations[language];
 
   if (location.pathname === '/') return null;
 
@@ -117,14 +124,14 @@ const FloatingStatus: React.FC = () => {
           </div>
           <div>
             <p className="font-semibold text-slate-800 text-sm">
-              {language === 'en' ? 'Analyzing Document...' : 'Đang phân tích...'}
+              {t.analyzing}
             </p>
             <p className="text-xs text-slate-500">
-              {language === 'en' ? 'You can keep browsing' : 'Bạn có thể tiếp tục duyệt web'}
+              {language === 'en' ? 'You can keep browsing' : '...'}
             </p>
           </div>
           <Link to="/" className="text-xs font-bold text-blue-600 hover:text-blue-800">
-            {language === 'en' ? 'View' : 'Xem'}
+            {t.view}
           </Link>
         </div>
       </div>
@@ -138,12 +145,12 @@ const FloatingStatus: React.FC = () => {
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>
           <div>
             <p className="font-semibold text-red-800 text-sm">
-              {language === 'en' ? 'Analysis Failed' : 'Phân tích thất bại'}
+              {t.analysisFailed}
             </p>
             <p className="text-xs text-slate-500">Check analyzer for details</p>
           </div>
           <Link to="/" className="text-xs font-bold text-red-600 hover:text-red-800">
-            {language === 'en' ? 'View' : 'Xem'}
+            {t.view}
           </Link>
         </div>
       </div>
@@ -164,10 +171,10 @@ const FloatingStatus: React.FC = () => {
           </div>
           <div>
             <p className="font-semibold text-slate-800 text-sm">
-              {language === 'en' ? 'Results Available' : 'Kết quả đã sẵn sàng'}
+              {t.resultsAvailable}
             </p>
             <p className="text-xs text-slate-500">
-              {language === 'en' ? 'Click to view analysis' : 'Nhấn để xem phân tích'}
+              {t.clickToView}
             </p>
           </div>
         </Link>

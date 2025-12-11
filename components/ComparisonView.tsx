@@ -2,20 +2,22 @@ import React from 'react';
 import { useMedical } from '../context/MedicalContext';
 import { useNavigate } from 'react-router-dom';
 import { MedicalTestResult } from '../types';
+import { translations } from '../utils/translations';
 
 const ComparisonView: React.FC = () => {
   const { compareItems, language } = useMedical();
   const navigate = useNavigate();
+  const t = translations[language];
 
   if (compareItems.length !== 2) {
     return (
       <div className="text-center py-20">
-        <p className="text-slate-500">Please select two items from History to compare.</p>
+        <p className="text-slate-500">{t.selectCompare}</p>
         <button 
           onClick={() => navigate('/history')}
           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          Go to History
+          {t.history}
         </button>
       </div>
     );
@@ -53,10 +55,10 @@ const ComparisonView: React.FC = () => {
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
           </svg>
-          {language === 'en' ? 'Back to History' : 'Quay lại Lịch sử'}
+          {t.backHistory}
         </button>
         <h1 className="text-2xl font-bold text-slate-800">
-          {language === 'en' ? 'Health Progress Comparison' : 'So sánh Tiến độ Sức khỏe'}
+          {t.compareTitle}
         </h1>
         <div className="w-24"></div> {/* Spacer for center alignment */}
       </div>
@@ -66,7 +68,7 @@ const ComparisonView: React.FC = () => {
         {/* Old Card */}
         <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-             {language === 'en' ? 'Previous' : 'Trước đây'}
+             {t.previous}
            </div>
            <h3 className="font-bold text-lg text-slate-800 mb-1">{formatDate(oldItem.date)}</h3>
            <p className="text-xs text-slate-500 truncate mb-4">{oldItem.fileName}</p>
@@ -80,10 +82,10 @@ const ComparisonView: React.FC = () => {
         {/* New Card */}
         <div className="bg-white p-6 rounded-xl border-2 border-blue-500 shadow-md relative">
            <div className="absolute top-0 right-0 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg uppercase tracking-wider">
-             {language === 'en' ? 'Latest' : 'Mới nhất'}
+             {t.latest}
            </div>
            <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
-             {language === 'en' ? 'Current' : 'Hiện tại'}
+             {t.current}
            </div>
            <h3 className="font-bold text-lg text-slate-900 mb-1">{formatDate(newItem.date)}</h3>
            <p className="text-xs text-slate-500 truncate mb-4">{newItem.fileName}</p>
@@ -97,7 +99,7 @@ const ComparisonView: React.FC = () => {
              </div>
              <div className="text-xs text-slate-400">/ 100 Risk Score</div>
              {newItem.data.overallRiskScore < oldItem.data.overallRiskScore && (
-               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">Improved</span>
+               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">{t.improved}</span>
              )}
            </div>
         </div>
@@ -109,10 +111,10 @@ const ComparisonView: React.FC = () => {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 w-1/3">{language === 'en' ? 'Test Name' : 'Tên xét nghiệm'}</th>
+                <th className="px-6 py-4 w-1/3">{t.testName}</th>
                 <th className="px-6 py-4 w-1/4">{formatDate(oldItem.date)}</th>
                 <th className="px-6 py-4 w-1/4 text-blue-700 font-bold">{formatDate(newItem.date)}</th>
-                <th className="px-6 py-4 w-1/6">{language === 'en' ? 'Status' : 'Trạng thái'}</th>
+                <th className="px-6 py-4 w-1/6">{t.status}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -168,10 +170,10 @@ const ComparisonView: React.FC = () => {
         <h3 className="font-bold text-blue-800 mb-2">AI Summary of Changes</h3>
         <p className="text-blue-700 text-sm">
           {newItem.data.overallRiskScore < oldItem.data.overallRiskScore
-             ? (language === 'en' ? "Your overall results have improved since the last visit. Keep up the good work!" : "Kết quả tổng thể của bạn đã cải thiện so với lần trước. Hãy tiếp tục phát huy!")
+             ? t.better
              : newItem.data.overallRiskScore > oldItem.data.overallRiskScore
-             ? (language === 'en' ? "There are some new concerns compared to your last result. Please consult your doctor about the highlighted changes." : "Có một số lo ngại mới so với kết quả trước. Vui lòng hỏi bác sĩ về những thay đổi này.")
-             : (language === 'en' ? "Your results are stable compared to your last visit." : "Kết quả của bạn ổn định so với lần trước.")
+             ? t.worse
+             : t.stable
           }
         </p>
       </div>

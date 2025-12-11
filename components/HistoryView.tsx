@@ -2,10 +2,12 @@ import React from 'react';
 import { useMedical } from '../context/MedicalContext';
 import { HistoryItem, Language } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { translations } from '../utils/translations';
 
 const HistoryView: React.FC = () => {
   const { history, deleteHistoryItem, compareItems, setCompareItems, loadHistoryItem, language } = useMedical();
   const navigate = useNavigate();
+  const t = translations[language];
 
   const toggleSelection = (item: HistoryItem) => {
     const isSelected = compareItems.some(i => i.id === item.id);
@@ -50,12 +52,10 @@ const HistoryView: React.FC = () => {
           </svg>
         </div>
         <h2 className="text-xl font-bold text-slate-700">
-            {language === 'en' ? 'No Analysis History' : 'Chưa có lịch sử phân tích'}
+            {t.noHistory}
         </h2>
         <p className="text-slate-500 mt-2">
-            {language === 'en' 
-             ? 'Upload documents to build your health history.' 
-             : 'Tải lên tài liệu để tạo lịch sử sức khỏe của bạn.'}
+            {t.noHistorySub}
         </p>
       </div>
     );
@@ -66,10 +66,10 @@ const HistoryView: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">
-            {language === 'en' ? 'History' : 'Lịch sử'}
+            {t.history}
           </h2>
           <p className="text-slate-500 text-sm">
-            {language === 'en' ? 'Select 2 items to compare progress.' : 'Chọn 2 mục để so sánh tiến độ.'}
+            {t.selectCompare}
           </p>
         </div>
 
@@ -85,7 +85,7 @@ const HistoryView: React.FC = () => {
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
           </svg>
-          {language === 'en' ? 'Compare' : 'So sánh'}
+          {t.compare}
         </button>
       </div>
 
@@ -93,9 +93,7 @@ const HistoryView: React.FC = () => {
         <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg flex items-center gap-3 animate-fade-in">
            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
            <span className="text-red-700 font-medium text-sm">
-             {language === 'en' 
-               ? 'Cannot compare different document types. Please select two similar documents (e.g., 2 Blood Tests).' 
-               : 'Không thể so sánh các loại tài liệu khác nhau. Vui lòng chọn 2 tài liệu giống nhau (ví dụ: 2 Xét nghiệm máu).'}
+             {t.typeMismatch}
            </span>
         </div>
       )}
@@ -145,7 +143,7 @@ const HistoryView: React.FC = () => {
                        <button 
                         onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
                         className="text-slate-400 hover:text-red-500 p-1 hover:bg-red-50 rounded-md transition-colors"
-                        title={language === 'en' ? 'Delete' : 'Xóa'}
+                        title={t.delete}
                        >
                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
@@ -182,7 +180,7 @@ const HistoryView: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  {language === 'en' ? 'View Full Analysis' : 'Xem chi tiết kết quả'}
+                  {t.viewFull}
                 </button>
               </div>
             </div>

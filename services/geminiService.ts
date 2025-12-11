@@ -10,6 +10,18 @@ const getAiClient = (customKey?: string) => {
   return new GoogleGenAI({ apiKey: key });
 };
 
+// Helper for Full Language Names
+const getLanguageName = (lang: Language): string => {
+  const map: Record<Language, string> = {
+    en: 'English',
+    vi: 'Vietnamese',
+    zh: 'Simplified Chinese',
+    ru: 'Russian',
+    fr: 'French'
+  };
+  return map[lang] || 'English';
+};
+
 // Allow setting a global key for the session if needed, though usually passed per request
 export const setCustomApiKey = (key: string) => {
   // Logic handled in getAiClient
@@ -137,7 +149,7 @@ export const analyzeDocument = async (
 ): Promise<AnalysisData> => {
   try {
     const ai = getAiClient(apiKey);
-    const langName = language === 'vi' ? 'Vietnamese' : 'English';
+    const langName = getLanguageName(language);
     const prompt = `
       You are an advanced medical diagnostic assistant API. 
       Output Language: ${langName}
@@ -221,7 +233,7 @@ const SYSTEM_INSTRUCTION = "You are a helpful, empathetic medical interpreter. Y
 
 export const initializeChat = (base64Data: string, mimeType: string, language: Language, apiKey?: string) => {
   const ai = getAiClient(apiKey);
-  const langName = language === 'vi' ? 'Vietnamese' : 'English';
+  const langName = getLanguageName(language);
   
   chatSession = ai.chats.create({
     model: "gemini-2.5-flash",
@@ -263,7 +275,7 @@ export const restoreChatSession = (
   apiKey?: string
 ) => {
   const ai = getAiClient(apiKey);
-  const langName = language === 'vi' ? 'Vietnamese' : 'English';
+  const langName = getLanguageName(language);
 
   // Reconstruct history
   // Start with the Document context

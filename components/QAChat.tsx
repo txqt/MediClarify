@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { createPortal } from 'react-dom';
 import { Language, AnalysisData } from '../types';
 import { useMedical } from '../context/MedicalContext';
+import { translations } from '../utils/translations';
 
 interface QAChatProps {
   initialLanguage: Language;
@@ -22,6 +23,7 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
   const [input, setInput] = useState('');
   const [isExpanded, setIsExpanded] = useState(false); // State for Dialog Mode
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const t = translations[initialLanguage];
 
   const scrollToBottom = () => {
     // Small timeout to ensure DOM is rendered before scrolling, especially when expanding
@@ -48,11 +50,7 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
 
   // Initial greeting (handled via Context to prevent dupes)
   useEffect(() => {
-    const greeting = initialLanguage === 'en' 
-      ? "I've analyzed your document. I cannot provide a diagnosis, but I can explain the results. What would you like to know?"
-      : "Tôi đã phân tích tài liệu. Tôi không thể chẩn đoán, nhưng tôi có thể giải thích kết quả. Bạn muốn biết thêm điều gì?";
-      
-    addSystemMessage(greeting);
+    addSystemMessage(t.greeting);
   }, [initialLanguage, addSystemMessage]);
 
   const handleSend = async (textInput: string) => {
@@ -72,15 +70,7 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
   // Suggestions logic
   const suggestions = analysisData.suggestedQuestions.slice(0, 3).length > 0 
     ? analysisData.suggestedQuestions.slice(0, 3) 
-    : (initialLanguage === 'en' ? [
-        "What do my abnormal results mean?",
-        "Should I be concerned?",
-        "What are next steps?"
-      ] : [
-        "Kết quả bất thường có nghĩa gì?",
-        "Tôi có nên lo lắng không?",
-        "Bước tiếp theo là gì?"
-      ]);
+    : t.defaultQuestions;
 
   // Render logic for the internal chat content to be reused in both Portal and Inline modes
   const renderChatContent = (isModal: boolean) => (
@@ -95,10 +85,10 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-blue-600">
               <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
             </svg>
-            {initialLanguage === 'en' ? 'MediChat Assistant' : 'Trợ lý MediChat'}
+            {t.chatTitle}
           </h3>
           <p className="text-xs text-slate-500 mt-1">
-            {initialLanguage === 'en' ? 'Ask about your results...' : 'Hỏi về kết quả của bạn...'}
+            {t.chatSubtitle}
           </p>
         </div>
         
@@ -177,7 +167,7 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
       {chatMessages.length < 3 && !isChatLoading && (
         <div className="px-4 pb-2 bg-slate-50/50 shrink-0">
           <p className="text-xs text-slate-400 mb-2 font-medium uppercase tracking-wider">
-            {initialLanguage === 'en' ? 'Suggested' : 'Gợi ý'}:
+            {t.suggested}:
           </p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((q, i) => (
@@ -200,7 +190,7 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={initialLanguage === 'en' ? "Type your question..." : "Nhập câu hỏi..."}
+            placeholder={t.typeQuestion}
             className="w-full pl-4 pr-12 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
             disabled={isChatLoading}
           />
@@ -224,7 +214,7 @@ const QAChat: React.FC<QAChatProps> = ({ initialLanguage, analysisData }) => {
       <>
         {/* Placeholder in sidebar to prevent layout collapse */}
         <div className="h-[600px] hidden md:flex items-center justify-center bg-slate-50 rounded-xl border border-slate-200 border-dashed text-slate-400 text-sm">
-           {initialLanguage === 'en' ? 'Chat Expanded' : 'Chat đã mở rộng'}
+           {initialLanguage === 'en' ? 'Chat Expanded' : 'Chat Expanded'}
         </div>
         
         {createPortal(
