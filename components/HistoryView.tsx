@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useMedical } from '../context/MedicalContext';
 import { HistoryItem, Language } from '../types';
 import { useNavigate } from 'react-router-dom';
@@ -9,18 +9,51 @@ const HistoryView: React.FC = () => {
   const navigate = useNavigate();
   const t = translations[language];
 
-  const toggleSelection = (item: HistoryItem) => {
-    const isSelected = compareItems.some(i => i.id === item.id);
+  // Language Flags/Labels
+  const langLabels: Record<Language, string> = {
+    en: "🇺🇸 EN",
+    vi: "🇻🇳 VI",
+    zh: "🇨🇳 ZH",
+    ru: "🇷🇺 RU",
+    fr: "🇫🇷 FR"
+  };
+
+  // Group History Items by Base64 (Source File)
+  const groupedHistory = useMemo(() => {
+    const groups: Record<string, HistoryItem[]> = {};
+    
+    history.forEach(item => {
+      // Use base64 as unique identifier for the document content
+      // Fallback to fileName for legacy support (though base64 should exist)
+      const key = item.base64 || item.fileName;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(item);
+    });
+
+    // Convert to array and sort by the date of the *latest* item in each group
+    return Object.values(groups).sort((groupA, groupB) => {
+      const maxDateA = Math.max(...groupA.map(i => i.date));
+      const maxDateB = Math.max(...groupB.map(i => i.date));
+      return maxDateB - maxDateA;
+    });
+  }, [history]);
+
+  const toggleSelection = (group: HistoryItem[]) => {
+    // When selecting for comparison, we select the LATEST item from the group
+    const latestItem = group.sort((a, b) => b.date - a.date)[0];
+    const isSelected = compareItems.some(i => i.id === latestItem.id);
     
     if (isSelected) {
-      setCompareItems(compareItems.filter(i => i.id !== item.id));
+      setCompareItems(compareItems.filter(i => i.id !== latestItem.id));
     } else {
       if (compareItems.length >= 2) {
-        // If 2 are selected, remove the first one and add new one to keep it user friendly
+        // If 2 are selected, remove the first one and add new one (FIFO-ish for UX)
         const [first, ...rest] = compareItems;
-        setCompareItems([...rest, item]);
+        setCompareItems([...rest, latestItem]);
       } else {
-        setCompareItems([...compareItems, item]);
+        setCompareItems([...compareItems, latestItem]);
       }
     }
   };
@@ -40,8 +73,12 @@ const HistoryView: React.FC = () => {
     navigate('/');
   };
 
-  // Sort by date descending
-  const sortedHistory = [...history].sort((a, b) => b.date - a.date);
+  const handleDeleteGroup = (group: HistoryItem[]) => {
+    // Delete all items in the group
+    if (window.confirm("Are you sure you want to delete this document and all its translations?")) {
+      group.forEach(item => deleteHistoryItem(item.id));
+    }
+  };
 
   if (history.length === 0) {
     return (
@@ -99,21 +136,29 @@ const HistoryView: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {sortedHistory.map((item) => {
-          const isSelected = compareItems.some(i => i.id === item.id);
+        {groupedHistory.map((group) => {
+          // Identify the 'primary' item for this group (latest analysis)
+          // Sort descending by date
+          const sortedGroupItems = [...group].sort((a, b) => b.date - a.date);
+          const latestItem = sortedGroupItems[0];
+          
+          // Determine unique languages available
+          const availableLanguages = Array.from(new Set(sortedGroupItems.map(i => i.language || 'en')));
+
+          const isSelected = compareItems.some(i => i.id === latestItem.id);
           const typeColor = {
              'Blood Test': 'bg-red-100 text-red-800',
              'Urinalysis': 'bg-yellow-100 text-yellow-800',
              'Prescription': 'bg-blue-100 text-blue-800',
              'Radiology Report': 'bg-gray-100 text-gray-800',
-          }[item.documentType] || 'bg-slate-100 text-slate-800';
+          }[latestItem.documentType] || 'bg-slate-100 text-slate-800';
 
           return (
             <div 
-              key={item.id}
-              onClick={() => toggleSelection(item)}
+              key={latestItem.base64 || latestItem.fileName}
+              onClick={() => toggleSelection(group)}
               className={`
-                relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group flex flex-col
+                relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group flex flex-col h-full
                 ${isSelected 
                   ? 'border-blue-500 bg-blue-50 shadow-md' 
                   : 'border-white bg-white shadow-sm hover:border-blue-200 hover:shadow-md'}
@@ -127,52 +172,82 @@ const HistoryView: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex gap-4 mb-4">
+              <div className="flex gap-4 mb-2">
                  {/* Thumbnail Placeholder */}
-                 <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-slate-300">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
+                 <div className="w-16 h-16 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-slate-200 relative">
+                    {latestItem.previewUrl ? (
+                      <img src={latestItem.previewUrl} alt="doc" className="w-full h-full object-cover" />
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-slate-300">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                    )}
                  </div>
                  
-                 <div className="flex-1">
+                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start">
                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md mb-1 inline-block ${typeColor}`}>
-                         {item.documentType}
+                         {latestItem.documentType}
                        </span>
                        <button 
-                        onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group); }}
                         className="text-slate-400 hover:text-red-500 p-1 hover:bg-red-50 rounded-md transition-colors"
-                        title={t.delete}
+                        title={t.deleteAll}
                        >
                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
                          </svg>
                        </button>
                     </div>
-                    <h3 className="font-bold text-slate-800 line-clamp-1">{item.fileName}</h3>
+                    <h3 className="font-bold text-slate-800 truncate" title={latestItem.fileName}>{latestItem.fileName}</h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      {new Date(item.date).toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN', { 
+                      {new Date(latestItem.date).toLocaleDateString(language === 'en' ? 'en-US' : 'vi-VN', { 
                         year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
                       })}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
                        <div className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                         Score: {item.data.overallRiskScore}
+                         Score: {latestItem.data.overallRiskScore}
                        </div>
-                       {item.data.overallRiskLevel === 'critical' || item.data.overallRiskLevel === 'high' ? (
+                       {latestItem.data.overallRiskLevel === 'critical' || latestItem.data.overallRiskLevel === 'high' ? (
                           <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                        ) : null}
                     </div>
                  </div>
               </div>
+
+              {/* Language Versions (New Feature) */}
+              <div className="bg-slate-50 rounded-lg p-2.5 mb-2 mt-auto border border-slate-100">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">{t.availableLangs}</span>
+                <div className="flex flex-wrap gap-2">
+                  {availableLanguages.map(lang => {
+                    // Find specific ID for this language
+                    // If multiple exist for same language, take the newest one
+                    const specificItem = sortedGroupItems.find(i => (i.language || 'en') === lang);
+                    if (!specificItem) return null;
+
+                    return (
+                      <button
+                        key={lang}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(specificItem.id);
+                        }}
+                        className="px-2 py-1 bg-white border border-slate-200 rounded text-xs font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors shadow-sm"
+                      >
+                        {langLabels[lang] || lang.toUpperCase()}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
               
-              {/* View Details Button */}
-              <div className="mt-auto pt-2 border-t border-slate-100">
+              {/* View Latest Details Button */}
+              <div className="pt-2 border-t border-slate-100">
                 <button 
                   onClick={(e) => {
                     e.stopPropagation(); // Prevent toggling selection
-                    handleViewDetails(item.id);
+                    handleViewDetails(latestItem.id);
                   }}
                   className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-sm hover:bg-blue-100 hover:text-blue-700 transition-colors flex items-center justify-center gap-2"
                 >

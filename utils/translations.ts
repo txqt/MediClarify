@@ -53,7 +53,7 @@ export const translations = {
     noHistory: "No Analysis History",
     noHistorySub: "Upload documents to build your health history.",
     delete: "Delete",
-    viewFull: "View Full Analysis",
+    viewFull: "View Latest Analysis",
     compare: "Compare",
     selectCompare: "Select 2 items to compare progress.",
     compareTitle: "Health Progress Comparison",
@@ -67,7 +67,9 @@ export const translations = {
     stable: "Your results are stable compared to your last visit.",
     worse: "There are some new concerns compared to your last result. Please consult your doctor about the highlighted changes.",
     better: "Your overall results have improved since the last visit. Keep up the good work!",
-    typeMismatch: "Cannot compare different document types. Please select two similar documents (e.g., 2 Blood Tests)."
+    typeMismatch: "Cannot compare different document types. Please select two similar documents (e.g., 2 Blood Tests).",
+    availableLangs: "Analyzed Languages",
+    deleteAll: "Delete All Versions"
   },
   vi: {
     analyzing: "Đang phân tích tài liệu...",
@@ -121,7 +123,7 @@ export const translations = {
     noHistory: "Chưa có lịch sử phân tích",
     noHistorySub: "Tải lên tài liệu để tạo lịch sử sức khỏe của bạn.",
     delete: "Xóa",
-    viewFull: "Xem chi tiết kết quả",
+    viewFull: "Xem phân tích mới nhất",
     compare: "So sánh",
     selectCompare: "Chọn 2 mục để so sánh tiến độ.",
     compareTitle: "So sánh Tiến độ Sức khỏe",
@@ -135,7 +137,9 @@ export const translations = {
     stable: "Kết quả của bạn ổn định so với lần trước.",
     worse: "Có một số lo ngại mới so với kết quả trước. Vui lòng hỏi bác sĩ về những thay đổi này.",
     better: "Kết quả tổng thể của bạn đã cải thiện so với lần trước. Hãy tiếp tục phát huy!",
-    typeMismatch: "Không thể so sánh các loại tài liệu khác nhau. Vui lòng chọn 2 tài liệu giống nhau."
+    typeMismatch: "Không thể so sánh các loại tài liệu khác nhau. Vui lòng chọn 2 tài liệu giống nhau.",
+    availableLangs: "Đã phân tích ngôn ngữ",
+    deleteAll: "Xóa tất cả phiên bản"
   },
   zh: {
     analyzing: "正在分析文档...",
@@ -189,7 +193,7 @@ export const translations = {
     noHistory: "无分析历史",
     noHistorySub: "上传文档以建立您的健康档案。",
     delete: "删除",
-    viewFull: "查看完整分析",
+    viewFull: "查看最新分析",
     compare: "比较",
     selectCompare: "选择 2 个项目比较进度。",
     compareTitle: "健康进度比较",
@@ -203,7 +207,9 @@ export const translations = {
     stable: "与上次访问相比，您的结果稳定。",
     worse: "与上次结果相比有一些新的担忧。请咨询您的医生有关突出显示的变化。",
     better: "自上次访问以来，您的总体结果有所改善。请保持！",
-    typeMismatch: "无法比较不同的文档类型。请选择两个相似的文档。"
+    typeMismatch: "无法比较不同的文档类型。请选择两个相似的文档。",
+    availableLangs: "已分析语言",
+    deleteAll: "删除所有版本"
   },
   ru: {
     analyzing: "Анализ документа...",
@@ -257,7 +263,7 @@ export const translations = {
     noHistory: "Нет истории анализов",
     noHistorySub: "Загрузите документы, чтобы создать историю здоровья.",
     delete: "Удалить",
-    viewFull: "Посмотреть полный анализ",
+    viewFull: "Посмотреть последний анализ",
     compare: "Сравнить",
     selectCompare: "Выберите 2 элемента для сравнения.",
     compareTitle: "Сравнение прогресса здоровья",
@@ -271,7 +277,9 @@ export const translations = {
     stable: "Ваши результаты стабильны по сравнению с прошлым визитом.",
     worse: "Есть новые проблемы по сравнению с прошлым результатом. Проконсультируйтесь с врачом.",
     better: "Ваши результаты улучшились. Так держать!",
-    typeMismatch: "Нельзя сравнивать разные типы документов."
+    typeMismatch: "Нельзя сравнивать разные типы документов.",
+    availableLangs: "Проанализированные языки",
+    deleteAll: "Удалить все версии"
   },
   fr: {
     analyzing: "Analyse du document...",
@@ -325,7 +333,7 @@ export const translations = {
     noHistory: "Aucun historique d'analyse",
     noHistorySub: "Téléchargez des documents pour créer votre historique de santé.",
     delete: "Supprimer",
-    viewFull: "Voir l'analyse complète",
+    viewFull: "Voir la dernière analyse",
     compare: "Comparer",
     selectCompare: "Sélectionnez 2 éléments pour comparer.",
     compareTitle: "Comparaison des progrès de santé",
@@ -339,6 +347,8 @@ export const translations = {
     stable: "Vos résultats sont stables par rapport à votre dernière visite.",
     worse: "Il y a de nouvelles préoccupations par rapport à votre dernier résultat. Veuillez consulter votre médecin.",
     better: "Vos résultats globaux se sont améliorés. Continuez comme ça !",
-    typeMismatch: "Impossible de comparer différents types de documents."
+    typeMismatch: "Impossible de comparer différents types de documents.",
+    availableLangs: "Langues analysées",
+    deleteAll: "Supprimer toutes les versions"
   }
 };
