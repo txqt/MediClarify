@@ -22,6 +22,7 @@ interface MedicalContextType {
   compareItems: HistoryItem[]; // Max 2 items
   setCompareItems: (items: HistoryItem[]) => void;
   loadHistoryItem: (id: string) => void; 
+  prepareComparison: (items: HistoryItem[], targetLang: Language) => Promise<boolean>;
 
   // Global Chat State
   chatMessages: ChatMessage[];
@@ -210,6 +211,86 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  // --- Comparison Preparation Logic ---
+  // Ensures all items for comparison are available in the target language
+  // If not, it analyzes them on the fly.
+  const prepareComparison = async (items: HistoryItem[], targetLang: Language): Promise<boolean> => {
+    // If no items, abort
+    if (items.length === 0) return false;
+
+    setIsAnalyzing(true);
+    setError(null);
+    const newCompareItems: HistoryItem[] = [];
+    
+    // Keep track of base64s processed in this session to handle collision if multiple items have same content
+    const processedBase64s: Record<string, HistoryItem> = {};
+
+    try {
+      for (const item of items) {
+        // Skip invalid items (legacy data without base64) - keep them as is (best effort)
+        if (!item.base64 || !item.mimeType) {
+           newCompareItems.push(item);
+           continue; 
+        }
+
+        const itemLang = item.language || 'en';
+
+        // 1. Is it already in target lang?
+        if (itemLang === targetLang) {
+          newCompareItems.push(item);
+          processedBase64s[item.base64] = item;
+          continue;
+        }
+
+        // 2. Check if we just analyzed/added this specific document in this loop
+        if (processedBase64s[item.base64]) {
+             newCompareItems.push(processedBase64s[item.base64]);
+             continue;
+        }
+
+        // 3. Check existing history for a version in targetLang (Cache check)
+        const cached = history.find(h => 
+          h.base64 === item.base64 && 
+          (h.language || 'en') === targetLang
+        );
+        
+        if (cached) {
+          newCompareItems.push(cached);
+          processedBase64s[item.base64] = cached;
+          continue;
+        }
+
+        // 4. Not found? Analyze it now.
+        // We use the item's existing date to preserve the "Before/After" timeline in comparison view
+        const result = await analyzeDocument(item.base64, item.mimeType, targetLang, settings.apiKey);
+        
+        const newItem: HistoryItem = {
+           ...item,
+           id: Date.now().toString() + Math.random().toString(36).substring(7),
+           language: targetLang,
+           data: result,
+           chatHistory: [], // Clear chat for new language version
+           date: item.date // CRITICAL: Preserve original date for comparison sorting
+        };
+
+        // Important: Update history state immediately
+        setHistory(prev => [newItem, ...prev]);
+        newCompareItems.push(newItem);
+        processedBase64s[item.base64] = newItem;
+      }
+
+      setCompareItems(newCompareItems);
+      setIsAnalyzing(false);
+      return true;
+
+    } catch (e) {
+      console.error("Comparison Prep Error", e);
+      setError("Failed to translate reports for comparison. Please try again.");
+      setIsAnalyzing(false);
+      return false;
+    }
+  };
+
   // --- Chat Logic ---
   const sendUserMessage = async (textInput: string) => {
     if (!textInput.trim() || isChatLoading) return;
@@ -366,6 +447,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
       compareItems,
       setCompareItems,
       loadHistoryItem,
+      prepareComparison,
       // Chat
       chatMessages,
       isChatLoading,

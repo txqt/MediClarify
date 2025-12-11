@@ -1,13 +1,30 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useMedical } from '../context/MedicalContext';
 import { HistoryItem, Language } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { translations } from '../utils/translations';
 
 const HistoryView: React.FC = () => {
-  const { history, deleteHistoryItem, compareItems, setCompareItems, loadHistoryItem, language } = useMedical();
+  const { 
+    history, 
+    deleteHistoryItem, 
+    compareItems, 
+    setCompareItems, 
+    loadHistoryItem, 
+    language,
+    prepareComparison,
+    isAnalyzing,
+    resetApp
+  } = useMedical();
+  
   const navigate = useNavigate();
   const t = translations[language];
+
+  // Clear active session on mount to ensure Navbar language selector 
+  // doesn't trigger analysis of a stale file.
+  useEffect(() => {
+    resetApp();
+  }, []); // Run once on mount
 
   // Language Flags/Labels
   const langLabels: Record<Language, string> = {
@@ -42,6 +59,7 @@ const HistoryView: React.FC = () => {
 
   const toggleSelection = (group: HistoryItem[]) => {
     // When selecting for comparison, we select the LATEST item from the group
+    // This allows the user to click the "Card" to toggle
     const latestItem = group.sort((a, b) => b.date - a.date)[0];
     const isSelected = compareItems.some(i => i.id === latestItem.id);
     
@@ -62,9 +80,14 @@ const HistoryView: React.FC = () => {
   const isSelectionValid = compareItems.length === 2;
   const isTypeMismatch = isSelectionValid && compareItems[0].documentType !== compareItems[1].documentType;
 
-  const handleCompare = () => {
-    if (isSelectionValid && !isTypeMismatch) {
-      navigate('/compare');
+  const handleCompare = async () => {
+    if (isSelectionValid && !isTypeMismatch && !isAnalyzing) {
+      // Prepare comparisons checks if selected items match the current app language.
+      // If not, it analyzes/translates them on the fly.
+      const success = await prepareComparison(compareItems, language);
+      if (success) {
+        navigate('/compare');
+      }
     }
   };
 
@@ -112,17 +135,29 @@ const HistoryView: React.FC = () => {
 
         <button
           onClick={handleCompare}
-          disabled={!isSelectionValid || isTypeMismatch}
+          disabled={!isSelectionValid || isTypeMismatch || isAnalyzing}
           className={`px-6 py-2.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-2
-            ${(!isSelectionValid || isTypeMismatch) 
+            ${(!isSelectionValid || isTypeMismatch || isAnalyzing) 
               ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
               : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md active:scale-95'}
           `}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
-          </svg>
-          {t.compare}
+          {isAnalyzing ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {t.analyzing}
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 00-3.7-3.7 48.678 48.678 0 00-7.324 0 4.006 4.006 0 00-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3l-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 003.7 3.7 48.656 48.656 0 007.324 0 4.006 4.006 0 003.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3l-3 3" />
+              </svg>
+              {t.compare}
+            </>
+          )}
         </button>
       </div>
 
@@ -131,6 +166,18 @@ const HistoryView: React.FC = () => {
            <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
            <span className="text-red-700 font-medium text-sm">
              {t.typeMismatch}
+           </span>
+        </div>
+      )}
+
+      {isAnalyzing && (
+         <div className="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg flex items-center gap-3 animate-pulse">
+           <svg className="animate-spin w-5 h-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+           </svg>
+           <span className="text-blue-700 font-medium text-sm">
+             {t.analyzingSub}
            </span>
         </div>
       )}
