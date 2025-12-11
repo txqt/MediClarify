@@ -105,11 +105,21 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, [chatMessages, currentHistoryId]);
 
-  const addToHistory = (fileData: FileData, data: AnalysisData) => {
+  // Modified: Accepts explicit language to avoid closure staleness issues
+  const addToHistory = (fileData: FileData, data: AnalysisData, targetLanguage: Language) => {
+    // Check if duplicate already exists to prevent double-save
+    const exists = history.some(h => 
+      h.base64 === fileData.base64 && 
+      (h.language === targetLanguage || (!h.language && targetLanguage === 'en'))
+    );
+    
+    if (exists) return;
+
     const newId = Date.now().toString();
     const newItem: HistoryItem = {
       id: newId,
       date: Date.now(),
+      language: targetLanguage, // Use explicit argument
       fileName: fileData.file.name,
       previewUrl: fileData.previewUrl, 
       data: data,
@@ -135,22 +145,45 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (!item) return;
 
     setCurrentHistoryId(item.id);
+    const itemLang = item.language || 'en';
+    setLanguage(itemLang);
 
     // Restore Analysis Data
     setAnalysisData(item.data);
     
     // Attempt to reconstruct File Data state
     const isDataUrl = item.previewUrl && item.previewUrl.startsWith('data:');
+    // Ensure we use the stored base64 if available, otherwise try to extract from preview if it's a data URL
+    const base64 = item.base64 || (isDataUrl ? item.previewUrl.split(',')[1] : '');
     
     setFileData({
       file: new File([], item.fileName), // Dummy file object
       previewUrl: item.previewUrl,
-      base64: item.base64 || (isDataUrl ? item.previewUrl.split(',')[1] : ''),
+      base64: base64,
       mimeType: item.mimeType || (item.previewUrl.startsWith('data:image') ? 'image/jpeg' : 'application/pdf')
     });
     
-    // Reset other states
-    setAnalysisCache({}); 
+    // SMART CACHE POPULATION
+    // Find ALL history items that share this base64 and populate the cache. 
+    // This ensures switching languages uses cached/history data instantly without re-api calls.
+    const newCache: Partial<Record<Language, AnalysisData>> = {};
+    
+    // Always add the current item
+    newCache[itemLang] = item.data;
+
+    // Search for other language versions of this document in history
+    if (base64) {
+      const relatedItems = history.filter(h => h.base64 === base64 && h.id !== item.id);
+      relatedItems.forEach(related => {
+         const lang = related.language || 'en'; 
+         // Only add if not already present (current item takes precedence)
+         if (!newCache[lang]) {
+            newCache[lang] = related.data;
+         }
+      });
+    }
+
+    setAnalysisCache(newCache);
     setError(null);
     setPrefilledMessage('');
     
@@ -163,7 +196,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
         restoreChatSession(
           item.base64, 
           item.mimeType, 
-          language, 
+          itemLang, 
           item.chatHistory, 
           settings.apiKey
         );
@@ -172,7 +205,7 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
       setChatMessages([]); 
       // Initialize fresh chat if no history exists yet
       if (item.base64 && item.mimeType) {
-        initializeChat(item.base64, item.mimeType, language, settings.apiKey);
+        initializeChat(item.base64, item.mimeType, itemLang, settings.apiKey);
       }
     }
   };
@@ -229,28 +262,43 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const performAnalysis = async (data: FileData, lang: Language) => {
-    // Reset chat when analyzing a new file
-    // Note: If we are just switching language for existing file, maybe keep chat? 
-    // For now, simple approach: Clear chat on re-analysis to match language context.
-    if (!analysisCache[lang]) {
-        setChatMessages([]); 
-        setCurrentHistoryId(null); // Will be set in addToHistory
-    }
-
     // 1. Check Cache first
     if (analysisCache[lang]) {
       setAnalysisData(analysisCache[lang]!);
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
-      // Note: If we had a history ID for this cache, we should theoretically restore it.
-      // But simple cache implementation here assumes fresh analysis for now.
       return;
     }
 
-    // 2. If not in cache, call API
+    // 2. Check History for same file + target language (Cache Hit from History)
+    // This acts as a fallback if cache wasn't pre-populated
+    const historyMatch = history.find(h => 
+      h.base64 === data.base64 && 
+      (h.language === lang || (!h.language && lang === 'en'))
+    );
+
+    if (historyMatch) {
+      setAnalysisData(historyMatch.data);
+      setAnalysisCache(prev => ({ ...prev, [lang]: historyMatch.data }));
+      setCurrentHistoryId(historyMatch.id);
+
+      if (historyMatch.chatHistory && historyMatch.chatHistory.length > 0) {
+        setChatMessages(historyMatch.chatHistory);
+        restoreChatSession(data.base64, data.mimeType, lang, historyMatch.chatHistory, settings.apiKey);
+      } else {
+        setChatMessages([]);
+        initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
+      }
+      return;
+    }
+
+    // 3. If not in cache, call API
+    // Reset chat when analyzing a new file/language combination not in cache
+    setChatMessages([]); 
+    setCurrentHistoryId(null); 
+    
     setAnalysisData(null); 
     setIsAnalyzing(true);
     setError(null);
-    setChatMessages([]); 
 
     try {
       const result = await analyzeDocument(data.base64, data.mimeType, lang, settings.apiKey);
@@ -258,8 +306,8 @@ export const MedicalProvider: React.FC<{ children: ReactNode }> = ({ children })
       setAnalysisData(result);
       setAnalysisCache(prev => ({ ...prev, [lang]: result }));
       
-      // Auto-save to history
-      addToHistory(data, result);
+      // Auto-save to history, explicitely passing 'lang' to avoid state closure staleness
+      addToHistory(data, result, lang);
 
       initializeChat(data.base64, data.mimeType, lang, settings.apiKey);
     } catch (err) {

@@ -69,6 +69,7 @@ export interface UserSettings {
 export interface HistoryItem {
   id: string;
   date: number; // timestamp
+  language?: Language; // Language of the analysis
   fileName: string;
   previewUrl: string; // Blob URL or base64 thumbnail
   data: AnalysisData;

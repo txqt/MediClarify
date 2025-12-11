@@ -185,7 +185,7 @@ export const analyzeDocument = async (
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-2.5-flash",
       contents: {
         parts: [
           {
@@ -224,7 +224,7 @@ export const initializeChat = (base64Data: string, mimeType: string, language: L
   const langName = language === 'vi' ? 'Vietnamese' : 'English';
   
   chatSession = ai.chats.create({
-    model: "gemini-3-pro-preview",
+    model: "gemini-2.5-flash",
     history: [
       {
         role: "user",
